@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   ArrowRight,
   BookOpenText,
@@ -5,10 +6,10 @@ import {
   Check,
   DownloadSimple,
   FilePdf,
-  LockKey,
+  Fingerprint,
   NotePencil,
+  Quotes,
   ShieldCheck,
-  Sparkle,
   WindowsLogo,
 } from "@phosphor-icons/react";
 import "./landing.css";
@@ -18,16 +19,19 @@ const studyFlow = [
     icon: FilePdf,
     title: "导入教材",
     text: "PDF 与 EPUB 在本机解析。扫描版 PDF 可按需启用本地 OCR。",
+    note: "从你的资料开始",
   },
   {
     icon: BookOpenText,
     title: "读懂原文",
-    text: "原版页面与智能文本双向定位，引用能直接回到教材位置。",
+    text: "原版页面与智能文本双向定位，点击引用就能回到教材位置。",
+    note: "答案始终可追溯",
   },
   {
     icon: Brain,
     title: "检验理解",
     text: "围绕当前教材问答、练习与复习。依据不足时，知页会明确说明。",
+    note: "把阅读变成掌握",
   },
 ];
 
@@ -38,7 +42,40 @@ const boundaries = [
   "学习备份支持 AES-256-GCM 加密",
 ];
 
+const productPrinciples = [
+  ["01", "本地解析"],
+  ["02", "原文引用"],
+  ["03", "依据不足时拒答"],
+  ["04", "Windows x64"],
+];
+
 export default function LandingPage() {
+  useEffect(() => {
+    const items = document.querySelectorAll<HTMLElement>(".landing .reveal");
+    if (
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      !("IntersectionObserver" in window)
+    ) {
+      items.forEach((item) => item.classList.add("is-visible"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -6% 0px" },
+    );
+
+    items.forEach((item) => observer.observe(item));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="landing">
       <header className="landing-nav">
@@ -77,13 +114,18 @@ export default function LandingPage() {
           </div>
 
           <figure className="hero-visual">
-            <img
-              src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
-              alt="知页中同时显示教材原版页面、章节内容与伴学问答"
-              width="1500"
-              height="713"
-            />
-            <figcaption>教材原版、章节目录与伴学问答，在同一阅读现场。</figcaption>
+            <div className="hero-frame">
+              <img
+                src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
+                alt="知页中同时显示教材原版页面、章节内容与伴学问答"
+                width="1500"
+                height="713"
+              />
+            </div>
+            <figcaption>
+              <span>同一阅读现场</span>
+              教材原版、章节目录与伴学问答
+            </figcaption>
           </figure>
         </section>
 
@@ -93,28 +135,37 @@ export default function LandingPage() {
         </a>
 
         <section className="principle-strip" aria-label="产品原则">
-          <span>本地解析</span>
-          <span>原文引用</span>
-          <span>依据不足时拒答</span>
-          <span>Windows x64</span>
+          {productPrinciples.map(([index, label]) => (
+            <div key={label}>
+              <span>{index}</span>
+              <strong>{label}</strong>
+            </div>
+          ))}
         </section>
 
         <section className="workflow section-shell" id="workflow">
-          <div className="section-intro">
+          <div className="section-intro reveal">
             <h2>从翻开教材，到真正掌握。</h2>
-            <p>不是另一个泛泛聊天框。每一次回答、练习和笔记，都围绕你正在读的内容发生。</p>
+            <p>
+              不是另一个泛泛聊天框。每一次回答、练习和笔记，都围绕你正在读的内容发生。
+            </p>
           </div>
           <div className="flow-grid">
             {studyFlow.map((item, index) => {
               const Icon = item.icon;
               return (
-                <article className={`flow-item flow-item-${index + 1}`} key={item.title}>
+                <article
+                  className={`flow-item flow-item-${index + 1} reveal`}
+                  key={item.title}
+                >
+                  <div className="flow-index">0{index + 1}</div>
                   <div className="flow-icon">
                     <Icon weight="duotone" aria-hidden="true" />
                   </div>
-                  <div>
+                  <div className="flow-content">
                     <h3>{item.title}</h3>
                     <p>{item.text}</p>
+                    <span>{item.note}</span>
                   </div>
                 </article>
               );
@@ -122,14 +173,14 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="reading-story section-shell">
+        <section className="reading-story section-shell reveal">
           <div className="story-copy">
-            <Sparkle weight="duotone" aria-hidden="true" />
+            <Quotes weight="fill" aria-hidden="true" />
             <h2>答案不是终点，原文才是。</h2>
             <p>
-              点击引用即可回到教材位置。原版页面与智能文本相互对应，整理后的内容不会替代你的原始教材。
+              点击引用即可回到教材位置。整理后的内容不会替代你的原始教材。
             </p>
-            <div className="story-detail">
+            <div className="story-detail" aria-label="原文能力">
               <span>PDF 原版阅读</span>
               <span>语义分段</span>
               <span>章节内检索</span>
@@ -147,14 +198,16 @@ export default function LandingPage() {
         </section>
 
         <section className="privacy section-shell" id="privacy">
-          <div className="privacy-copy">
-            <LockKey weight="duotone" aria-hidden="true" />
+          <div className="privacy-copy reveal">
+            <div className="privacy-mark">
+              <Fingerprint weight="duotone" aria-hidden="true" />
+            </div>
             <h2>本地优先，是产品边界。</h2>
             <p>
               知页不会替你决定教材发给谁。你可以完全使用本地能力，也可以主动连接自己选择的智能来源。
             </p>
           </div>
-          <div className="boundary-list">
+          <div className="boundary-list reveal">
             {boundaries.map((item) => (
               <div key={item}>
                 <Check weight="bold" aria-hidden="true" />
@@ -164,7 +217,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="download section-shell" id="download">
+        <section className="download section-shell reveal" id="download">
           <div className="download-mark">
             <WindowsLogo weight="duotone" aria-hidden="true" />
           </div>
@@ -180,7 +233,9 @@ export default function LandingPage() {
               <DownloadSimple weight="bold" aria-hidden="true" />
               等待签名版本
             </button>
-            <span id="release-status">正式包将经过 Authenticode 签名验证</span>
+            <span id="release-status">
+              正式包将经过 Authenticode 签名验证
+            </span>
           </div>
         </section>
       </main>
