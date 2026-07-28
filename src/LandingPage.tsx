@@ -74,6 +74,10 @@ export default function LandingPage() {
                 查看 Windows 版
               </a>
             </div>
+            <a className="hero-jump" href="#workflow">
+              怎么学习
+              <ArrowRight weight="bold" aria-hidden="true" />
+            </a>
           </div>
 
           <div className="hero-visual" aria-label="知页教材阅读界面预览">

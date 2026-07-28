@@ -58,7 +58,7 @@ async function visibleControlSizes(page: Page) {
 
 test("桌面端章节搜索、高亮与弹窗均可操作", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
-  await page.goto("/");
+  await page.goto("/app");
 
   await page.getByTitle("在当前章节中查找").click();
   await page.getByPlaceholder("查找当前章节").fill("命题");
@@ -83,7 +83,7 @@ test("加密备份要求强密码并警告旧版明文文件", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
-  await page.goto("/");
+  await page.goto("/app");
   await page.getByRole("button", { name: "设置" }).click();
 
   const password = page.getByLabel("备份密码", { exact: true });
@@ -112,7 +112,7 @@ test("加密备份要求强密码并警告旧版明文文件", async ({
 
 test("手机端可直接切换阅读、伴学和笔记", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-chromium");
-  await page.goto("/");
+  await page.goto("/app");
 
   for (const width of [320, 390, 700]) {
     await page.setViewportSize({ width, height: 844 });
@@ -158,7 +158,7 @@ test("手机端可直接切换阅读、伴学和笔记", async ({ page }, testIn
 test("真实浏览器主题与设置状态满足无障碍要求", async ({ page }) => {
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
-    await page.goto("/");
+    await page.goto("/app");
     await expectNoSeriousAccessibilityIssues(page);
 
     await page.getByRole("button", { name: "设置" }).click();
@@ -173,7 +173,7 @@ test("真实浏览器主题与设置状态满足无障碍要求", async ({ page 
 });
 
 test("可见文字与交互控件达到舒适尺寸", async ({ page }, testInfo) => {
-  await page.goto("/");
+  await page.goto("/app");
 
   const minimumControlHeight =
     testInfo.project.name === "mobile-chromium" ? 44 : 36;

@@ -5,7 +5,10 @@ artifacts/
 output/
 test-results/
 .playwright-cli/
+.playwright-mcp/
+.wrangler/
 .reasonix/
+.openai/*.tar.gz
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts

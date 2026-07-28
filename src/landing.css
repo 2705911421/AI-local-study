@@ -1,3 +1,36 @@
+.landing,
+.landing button,
+.landing input,
+.landing textarea {
+  font-family: "Zhiye Sans", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+html,
+body,
+#root {
+  min-width: 0;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.landing button,
+.landing input,
+.landing textarea {
+  color: inherit;
+  font: inherit;
+}
+
+.landing button:focus-visible,
+.landing a:focus-visible {
+  outline: 2px solid #1f6a4b;
+  outline-offset: 3px;
+}
+
 .landing {
   --landing-ink: #1f2721;
   --landing-muted: #5b665e;
@@ -103,7 +136,7 @@
   width: min(100% - 48px, 1240px);
   min-height: calc(100dvh - 72px);
   display: grid;
-  grid-template-columns: minmax(0, 0.82fr) minmax(560px, 1.18fr);
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
   align-items: center;
   gap: 72px;
   margin: 0 auto;
@@ -113,6 +146,7 @@
 .hero-copy {
   position: relative;
   z-index: 2;
+  min-width: 0;
 }
 
 .eyebrow {
@@ -146,6 +180,10 @@
   align-items: center;
   gap: 12px;
   margin-top: 34px;
+}
+
+.hero-jump {
+  display: none;
 }
 
 .primary-button,
@@ -192,7 +230,9 @@
 
 .hero-visual {
   position: relative;
-  width: 760px;
+  width: min(760px, 100%);
+  min-width: 0;
+  justify-self: start;
   border: 1px solid #b9c3b9;
   border-radius: 16px;
   background: #f8f9f5;
@@ -726,12 +766,12 @@
 
 @media (max-width: 1100px) {
   .hero {
-    grid-template-columns: minmax(0, 0.9fr) minmax(470px, 1.1fr);
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     gap: 40px;
   }
 
   .hero-visual {
-    width: 640px;
+    width: 100%;
   }
 
   .visual-note-right {
@@ -770,9 +810,31 @@
   .hero {
     width: min(100% - 32px, 680px);
     min-height: auto;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 58px;
     padding: 62px 0 110px;
+  }
+
+  .hero-copy,
+  .hero-actions {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hero-jump {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 24px;
+    color: var(--landing-accent);
+    font-size: 14px;
+    font-weight: 750;
+  }
+
+  .hero-jump svg {
+    width: 16px;
+    height: 16px;
   }
 
   .hero h1 {
@@ -785,7 +847,8 @@
   }
 
   .hero-visual {
-    width: min(760px, 104vw);
+    width: 100%;
+    max-width: 760px;
   }
 
   .principle-strip {
@@ -898,8 +961,8 @@
   }
 
   .hero-visual {
-    width: 126vw;
-    margin-left: -8px;
+    width: 100%;
+    margin-left: 0;
   }
 
   .visual-note {
