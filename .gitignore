@@ -1,0 +1,11 @@
+node_modules/
+dist/
+release/
+artifacts/
+output/
+test-results/
+.playwright-cli/
+.reasonix/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts

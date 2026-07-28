@@ -1,0 +1,114 @@
+{
+  "name": "zhiye-local-study",
+  "private": true,
+  "version": "0.1.0",
+  "description": "面向 Windows 的本地教材伴学工具，只依据用户导入的教材回答。",
+  "author": {
+    "name": "知页团队"
+  },
+  "copyright": "Copyright © 2026 知页团队",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "vite",
+    "desktop:dev": "concurrently -k \"vite\" \"wait-on http://127.0.0.1:4173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:4173 electron .\"",
+    "build": "tsc -b && vite build && node scripts/prepare-sites-build.mjs",
+    "brand:generate": "node scripts/generate-brand-assets.mjs",
+    "desktop:build": "npm run build && node scripts/build-desktop.mjs --require-signature",
+    "desktop:build:unsigned": "npm run build && node scripts/build-desktop.mjs --unsigned",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:desktop": "vitest run electron",
+    "test:desktop:e2e": "npm run build && playwright test -c playwright.desktop.config.ts",
+    "audit:runtime": "npm audit --omit=dev"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.220",
+    "@openai/codex-sdk": "0.145.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "@radix-ui/react-alert-dialog": "^1.1.23",
+    "@radix-ui/react-dialog": "^1.1.23",
+    "extract-zip": "^2.0.1",
+    "jszip": "^3.10.1",
+    "pdfjs-dist": "^5.4.149",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@napi-rs/canvas": "^1.0.2",
+    "@playwright/test": "^1.62.0",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^4.3.4",
+    "archiver": "^8.0.0",
+    "concurrently": "^10.0.4",
+    "cross-env": "10.1.0",
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.0.0",
+    "png-to-ico": "^3.0.2",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.7",
+    "vitest": "^3.2.7",
+    "vitest-axe": "^0.1.0",
+    "wait-on": "9.0.1"
+  },
+  "build": {
+    "appId": "cn.zhiye.study",
+    "productName": "知页",
+    "compression": "maximum",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "!node_modules/@openai/codex-win32-x64/**/*",
+      "!node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/runtimes",
+        "to": "runtimes",
+        "filter": [
+          "*.zip"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "legalTrademarks": "知页",
+      "requestedExecutionLevel": "asInvoker",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Zhiye-${version}-windows-x64.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "知页",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "uninstallDisplayName": "知页"
+    },
+    "directories": {
+      "output": "release"
+    }
+  }
+}

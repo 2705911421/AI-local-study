@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">知页标志</title>
+  <rect x="28" y="28" width="456" height="456" rx="116" fill="#1F6A4B"/>
+  <path d="M139 92h169l72 72v256H139z" fill="#F8FAF5"/>
+  <path d="M308 92v72h72z" fill="#9ACBB0"/>
+  <path d="M181 197h145v42l-94 92h96v42H177v-42l94-92h-90z" fill="#1F6A4B"/>
+  <path d="M139 420h241" stroke="#9ACBB0" stroke-width="12"/>
+</svg>
