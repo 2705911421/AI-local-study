@@ -43,7 +43,7 @@ export default function LandingPage() {
     <div className="landing">
       <header className="landing-nav">
         <a className="landing-brand" href="#top" aria-label="知页首页">
-          <img src="./brand/logo-mark.svg" alt="" />
+          <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
           <span>知页</span>
         </a>
         <nav aria-label="主导航">
@@ -90,7 +90,7 @@ export default function LandingPage() {
               </div>
             </div>
             <img
-              src="./release/pdf-reader.png"
+              src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
               alt="知页中同时显示教材原版页面、章节内容与伴学问答"
               width="1500"
               height="937"
@@ -139,7 +139,7 @@ export default function LandingPage() {
         <section className="reading-story section-shell">
           <div className="story-image">
             <img
-              src="./release/text-correspondence.png"
+              src={`${import.meta.env.BASE_URL}release/text-correspondence.png`}
               alt="知页智能文本与 PDF 原文段落对应高亮"
               width="1365"
               height="768"
@@ -201,7 +201,7 @@ export default function LandingPage() {
 
       <footer>
         <div className="footer-brand">
-          <img src="./brand/logo-mark.svg" alt="" />
+          <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
           <div>
             <strong>知页</strong>
             <span>本地教材伴学</span>

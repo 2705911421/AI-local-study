@@ -47,6 +47,26 @@ test("发布页首屏在支持的视口内完整显示", async ({ page }) => {
   }
 });
 
+test("工作台深层入口不会请求缺失的静态资源", async ({ page }) => {
+  const failedAssets: string[] = [];
+  page.on("response", (response) => {
+    const resourceType = response.request().resourceType();
+    if (
+      response.status() >= 400 &&
+      ["font", "image", "script", "stylesheet"].includes(resourceType)
+    ) {
+      failedAssets.push(`${response.status()} ${response.url()}`);
+    }
+  });
+
+  for (const route of ["/app", "/app/"]) {
+    await page.goto(route);
+    await expect(page.getByRole("button", { name: "设置" })).toBeVisible();
+  }
+
+  expect(failedAssets).toEqual([]);
+});
+
 test("发布页导航和工作台路由均可访问", async ({ page }) => {
   await page.goto("/");
   await expect(

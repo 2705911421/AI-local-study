@@ -34,7 +34,7 @@ export function StartupSplash({ onComplete }: StartupSplashProps) {
         <div className="startup-splash__halo" />
         <img
           className="startup-splash__mark"
-          src="./brand/logo-mark.svg"
+          src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`}
           alt=""
         />
         <div className="startup-splash__rule" />

@@ -871,7 +871,7 @@ function AppInner() {
             aria-label="返回知页首页"
           >
             <span className="brand-mark" aria-hidden="true">
-              <img src="./brand/logo-mark.svg" alt="" />
+              <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
             </span>
             <span>
               <strong>知页</strong>
