@@ -13,7 +13,7 @@
     "dev": "vite --config vite.config.ts",
     "desktop:dev": "concurrently -k \"npm run dev\" \"wait-on http://127.0.0.1:4173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:4173 electron .\"",
     "build": "npm run build:web",
-    "build:web": "node scripts/clean-build.mjs && cross-env ZHIYE_BUILD_TARGET=web tsc -b && cross-env ZHIYE_BUILD_TARGET=web vite build --config vite.config.ts && node scripts/prepare-sites-build.mjs",
+    "build:web": "node scripts/clean-build.mjs && cross-env ZHIYE_BUILD_TARGET=web tsc -b && cross-env ZHIYE_BUILD_TARGET=web vite build --config vite.config.ts && node scripts/check-web-build.mjs && node scripts/prepare-sites-build.mjs",
     "build:desktop-client": "node scripts/clean-build.mjs && cross-env ZHIYE_BUILD_TARGET=desktop tsc -b && cross-env ZHIYE_BUILD_TARGET=desktop vite build --config vite.config.ts",
     "brand:generate": "node scripts/generate-brand-assets.mjs",
     "desktop:build": "npm run build:desktop-client && node scripts/build-desktop.mjs --require-signature",

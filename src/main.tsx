@@ -12,9 +12,9 @@ const isDesktop = Boolean(
 );
 const normalizedPath = window.location.pathname.replace(/\/+$/, "") || "/";
 const isStudyWorkspace = isDesktop || normalizedPath === "/app";
-const Surface = lazy(() =>
-  isStudyWorkspace ? import("./App") : import("./LandingPage"),
-);
+const StudyWorkspace = lazy(() => import("./App"));
+const ReleasePage = lazy(() => import("./LandingPage"));
+const Surface = isStudyWorkspace ? StudyWorkspace : ReleasePage;
 
 document.title = isStudyWorkspace
   ? "知页 · 本地教材伴学"
