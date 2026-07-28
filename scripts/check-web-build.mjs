@@ -4,9 +4,18 @@ import path from "node:path";
 
 const clientDir = path.resolve("dist/client");
 const html = await readFile(path.join(clientDir, "index.html"), "utf8");
+const staticHeaders = await readFile(path.join(clientDir, "_headers"), "utf8");
 const entryPath = html.match(/<script[^>]+src="([^"]+\.js)"/)?.[1];
 
 assert(entryPath, "网站入口脚本不存在");
+assert(
+  staticHeaders.includes("frame-ancestors 'none'"),
+  "静态资源安全响应头缺少 frame-ancestors",
+);
+assert(
+  staticHeaders.includes("X-Content-Type-Options: nosniff"),
+  "静态资源安全响应头缺少 nosniff",
+);
 
 const entry = await readFile(
   path.join(clientDir, entryPath.replace(/^\//, "")),
