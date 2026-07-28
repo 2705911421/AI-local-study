@@ -61,9 +61,9 @@ export default function LandingPage() {
         <section className="hero" id="top">
           <div className="hero-copy">
             <p className="eyebrow">你的教材，你的学习现场</p>
-            <h1>把教材留在电脑里，把问题问到原文里。</h1>
+            <h1>教材留在本地，问题回到原文。</h1>
             <p className="hero-lede">
-              知页是一款面向 Windows 的本地教材伴学工具，只依据你导入的 PDF 或 EPUB 回答。
+              导入 PDF 或 EPUB，知页只依据当前教材回答。
             </p>
             <div className="hero-actions">
               <a className="primary-button" href="./app">
@@ -74,37 +74,23 @@ export default function LandingPage() {
                 查看 Windows 版
               </a>
             </div>
-            <a className="hero-jump" href="#workflow">
-              怎么学习
-              <ArrowRight weight="bold" aria-hidden="true" />
-            </a>
           </div>
 
-          <div className="hero-visual" aria-label="知页教材阅读界面预览">
-            <div className="window-bar" aria-hidden="true">
-              <span>知页</span>
-              <div>
-                <i />
-                <i />
-                <i />
-              </div>
-            </div>
+          <figure className="hero-visual">
             <img
               src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
               alt="知页中同时显示教材原版页面、章节内容与伴学问答"
               width="1500"
-              height="937"
+              height="713"
             />
-            <div className="visual-note visual-note-left">
-              <BookOpenText weight="duotone" aria-hidden="true" />
-              原文双向定位
-            </div>
-            <div className="visual-note visual-note-right">
-              <ShieldCheck weight="duotone" aria-hidden="true" />
-              只依据当前教材
-            </div>
-          </div>
+            <figcaption>教材原版、章节目录与伴学问答，在同一阅读现场。</figcaption>
+          </figure>
         </section>
+
+        <a className="mobile-section-nav" href="#workflow">
+          怎么学习
+          <ArrowRight weight="bold" aria-hidden="true" />
+        </a>
 
         <section className="principle-strip" aria-label="产品原则">
           <span>本地解析</span>
@@ -137,15 +123,6 @@ export default function LandingPage() {
         </section>
 
         <section className="reading-story section-shell">
-          <div className="story-image">
-            <img
-              src={`${import.meta.env.BASE_URL}release/text-correspondence.png`}
-              alt="知页智能文本与 PDF 原文段落对应高亮"
-              width="1365"
-              height="768"
-              loading="lazy"
-            />
-          </div>
           <div className="story-copy">
             <Sparkle weight="duotone" aria-hidden="true" />
             <h2>答案不是终点，原文才是。</h2>
@@ -157,6 +134,15 @@ export default function LandingPage() {
               <span>语义分段</span>
               <span>章节内检索</span>
             </div>
+          </div>
+          <div className="story-image">
+            <img
+              src={`${import.meta.env.BASE_URL}release/text-correspondence.png`}
+              alt="知页智能文本与 PDF 原文段落对应高亮"
+              width="1365"
+              height="649"
+              loading="lazy"
+            />
           </div>
         </section>
 

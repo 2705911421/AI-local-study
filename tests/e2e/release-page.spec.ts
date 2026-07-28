@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 const releaseViewports = [
   { width: 320, height: 700 },
@@ -72,7 +73,7 @@ test("发布页导航和工作台路由均可访问", async ({ page }) => {
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "把教材留在电脑里，把问题问到原文里。",
+      name: "教材留在本地，问题回到原文。",
     }),
   ).toBeVisible();
 
@@ -84,4 +85,30 @@ test("发布页导航和工作台路由均可访问", async ({ page }) => {
     await expect(page.getByRole("button", { name: "设置" })).toBeVisible();
     await expect(page).toHaveTitle("知页 · 本地教材伴学");
   }
+});
+
+test("发布页响应深色、减少动效与无障碍偏好", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await page.goto("/");
+
+  const preferences = await page.locator(".landing").evaluate((landing) => ({
+    paper: getComputedStyle(landing).getPropertyValue("--paper").trim(),
+    activeAnimations: document
+      .getAnimations()
+      .filter((animation) => animation.playState === "running").length,
+    transitionDuration: Number.parseFloat(
+      getComputedStyle(document.querySelector(".primary-button")!)
+        .transitionDuration,
+    ),
+  }));
+
+  expect(preferences.paper).toBe("#101713");
+  expect(preferences.activeAnimations).toBe(0);
+  expect(preferences.transitionDuration).toBeLessThanOrEqual(0.00001);
+
+  const audit = await new AxeBuilder({ page }).analyze();
+  const severeViolations = audit.violations.filter(({ impact }) =>
+    ["serious", "critical"].includes(impact ?? ""),
+  );
+  expect(severeViolations).toEqual([]);
 });
