@@ -12,6 +12,8 @@ const CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+const INDEX_HTML = null;
+
 function withSecurityHeaders(response) {
   const secured = new Response(response.body, response);
   secured.headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
@@ -42,9 +44,16 @@ export default {
     const url = new URL(request.url);
     const isWorkspaceRoute =
       url.pathname === "/app" || url.pathname === "/app/";
-    let response = await env.ASSETS.fetch(
-      isWorkspaceRoute ? indexRequest(request) : request,
-    );
+    const isNavigation =
+      request.method === "GET" && isDocumentNavigation(request);
+    let response =
+      INDEX_HTML && isNavigation
+        ? new Response(INDEX_HTML, {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          })
+        : await env.ASSETS.fetch(
+            isWorkspaceRoute ? indexRequest(request) : request,
+          );
 
     if (
       response.status === 404 &&
