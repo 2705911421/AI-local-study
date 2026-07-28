@@ -1,4 +1,10 @@
-import { useEffect } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   ArrowRight,
   BookOpenText,
@@ -8,10 +14,19 @@ import {
   FilePdf,
   Fingerprint,
   NotePencil,
+  PaperPlaneTilt,
   Quotes,
   ShieldCheck,
   WindowsLogo,
 } from "@phosphor-icons/react";
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+} from "motion/react";
 import "./landing.css";
 
 const studyFlow = [
@@ -49,46 +64,106 @@ const productPrinciples = [
   ["04", "Windows x64"],
 ];
 
+const reveal = {
+  initial: { opacity: 0, y: 42, rotate: 0.6 },
+  visible: { opacity: 1, y: 0, rotate: 0 },
+};
+
 export default function LandingPage() {
+  const reduceMotion = useReducedMotion();
+  const [isLeaving, setIsLeaving] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const pointerX = useMotionValue(0);
+  const pointerY = useMotionValue(0);
+  const calmX = useSpring(pointerX, { stiffness: 90, damping: 24 });
+  const calmY = useSpring(pointerY, { stiffness: 90, damping: 24 });
+  const sketchX = useTransform(calmX, [-0.5, 0.5], [-18, 18]);
+  const sketchY = useTransform(calmY, [-0.5, 0.5], [-12, 12]);
+  const productX = useTransform(calmX, [-0.5, 0.5], [10, -10]);
+  const productY = useTransform(calmY, [-0.5, 0.5], [7, -7]);
+  const questionRotate = useTransform(calmX, [-0.5, 0.5], [-5, 5]);
+  const { scrollYProgress } = useScroll();
+  const progress = useSpring(scrollYProgress, { stiffness: 100, damping: 28 });
+  const paperDrift = useTransform(progress, [0, 1], [0, -130]);
+
   useEffect(() => {
-    const items = document.querySelectorAll<HTMLElement>(".landing .reveal");
+    if (!isLeaving) return;
+    const timer = window.setTimeout(() => {
+      window.location.assign(new URL("./app", window.location.href).href);
+    }, reduceMotion ? 20 : 720);
+    return () => window.clearTimeout(timer);
+  }, [isLeaving, reduceMotion]);
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (reduceMotion || event.pointerType === "touch") return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    pointerX.set((event.clientX - bounds.left) / bounds.width - 0.5);
+    pointerY.set((event.clientY - bounds.top) / bounds.height - 0.5);
+  };
+
+  const handlePointerLeave = () => {
+    pointerX.set(0);
+    pointerY.set(0);
+  };
+
+  const handleAppEntry = (event: ReactMouseEvent<HTMLAnchorElement>) => {
     if (
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-      !("IntersectionObserver" in window)
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
     ) {
-      items.forEach((item) => item.classList.add("is-visible"));
       return;
     }
+    event.preventDefault();
+    if (!isLeaving) setIsLeaving(true);
+  };
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -6% 0px" },
-    );
-
-    items.forEach((item) => observer.observe(item));
-    return () => observer.disconnect();
-  }, []);
+  const motionProps = reduceMotion
+    ? {}
+    : {
+        initial: "initial",
+        whileInView: "visible",
+        viewport: { once: true, amount: 0.16 },
+        variants: reveal,
+        transition: {
+          duration: 0.72,
+          ease: [0.16, 1, 0.3, 1] as const,
+        },
+      };
 
   return (
-    <div className="landing">
+    <div
+      className="landing"
+      ref={pageRef}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+    >
+      <motion.div
+        className="paper-grain"
+        style={reduceMotion ? undefined : { y: paperDrift }}
+        aria-hidden="true"
+      />
+      <aside className="reading-progress" aria-hidden="true">
+        <span>知页</span>
+        <div>
+          <motion.i style={{ scaleY: reduceMotion ? 1 : progress }} />
+        </div>
+      </aside>
+
       <header className="landing-nav">
         <a className="landing-brand" href="#top" aria-label="知页首页">
           <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
           <span>知页</span>
+          <small>本地教材伴学</small>
         </a>
         <nav aria-label="主导航">
           <a href="#workflow">怎么学习</a>
           <a href="#privacy">隐私边界</a>
           <a href="#download">Windows 版</a>
         </nav>
-        <a className="nav-cta" href="./app">
+        <a className="nav-cta" href="./app" onClick={handleAppEntry}>
           在线体验
           <ArrowRight weight="bold" aria-hidden="true" />
         </a>
@@ -103,7 +178,11 @@ export default function LandingPage() {
               导入 PDF 或 EPUB，知页只依据当前教材回答。
             </p>
             <div className="hero-actions">
-              <a className="primary-button" href="./app">
+              <a
+                className="primary-button"
+                href="./app"
+                onClick={handleAppEntry}
+              >
                 打开在线体验
                 <ArrowRight weight="bold" aria-hidden="true" />
               </a>
@@ -111,22 +190,51 @@ export default function LandingPage() {
                 查看 Windows 版
               </a>
             </div>
+            <div className="hero-pencil-note" aria-hidden="true">
+              <span>问题从这里出发</span>
+              <i />
+            </div>
           </div>
 
-          <figure className="hero-visual">
-            <div className="hero-frame">
+          <div className="hero-stage">
+            <motion.div
+              className="hero-sketch"
+              style={reduceMotion ? undefined : { x: sketchX, y: sketchY }}
+            >
               <img
-                src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
-                alt="知页中同时显示教材原版页面、章节内容与伴学问答"
-                width="1500"
-                height="713"
+                src={`${import.meta.env.BASE_URL}illustrations/research-notebook.webp`}
+                alt=""
+                width="1568"
+                height="1003"
               />
-            </div>
-            <figcaption>
-              <span>同一阅读现场</span>
-              教材原版、章节目录与伴学问答
-            </figcaption>
-          </figure>
+            </motion.div>
+            <motion.figure
+              className="hero-visual"
+              style={reduceMotion ? undefined : { x: productX, y: productY }}
+            >
+              <span className="paper-tape paper-tape-left" aria-hidden="true" />
+              <span className="paper-tape paper-tape-right" aria-hidden="true" />
+              <div className="hero-frame">
+                <img
+                  src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
+                  alt="知页中同时显示教材原版页面、章节内容与伴学问答"
+                  width="1500"
+                  height="713"
+                />
+              </div>
+              <figcaption>
+                <span>同一阅读现场</span>
+                教材原版、章节目录与伴学问答
+              </figcaption>
+            </motion.figure>
+            <motion.div
+              className="question-orbit"
+              style={reduceMotion ? undefined : { rotate: questionRotate }}
+              aria-hidden="true"
+            >
+              ?
+            </motion.div>
+          </div>
         </section>
 
         <a className="mobile-section-nav" href="#workflow">
@@ -135,28 +243,41 @@ export default function LandingPage() {
         </a>
 
         <section className="principle-strip" aria-label="产品原则">
-          {productPrinciples.map(([index, label]) => (
-            <div key={label}>
+          {productPrinciples.map(([index, label], itemIndex) => (
+            <motion.div
+              key={label}
+              initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: itemIndex * 0.07, duration: 0.45 }}
+            >
               <span>{index}</span>
               <strong>{label}</strong>
-            </div>
+            </motion.div>
           ))}
         </section>
 
         <section className="workflow section-shell" id="workflow">
-          <div className="section-intro reveal">
+          <motion.div className="section-intro" {...motionProps}>
+            <p className="hand-note">一条能回到原文的学习路径</p>
             <h2>从翻开教材，到真正掌握。</h2>
             <p>
               不是另一个泛泛聊天框。每一次回答、练习和笔记，都围绕你正在读的内容发生。
             </p>
-          </div>
+          </motion.div>
           <div className="flow-grid">
             {studyFlow.map((item, index) => {
               const Icon = item.icon;
               return (
-                <article
-                  className={`flow-item flow-item-${index + 1} reveal`}
+                <motion.article
+                  className={`flow-item flow-item-${index + 1}`}
                   key={item.title}
+                  {...motionProps}
+                  transition={{
+                    duration: 0.68,
+                    delay: reduceMotion ? 0 : index * 0.08,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
                 >
                   <div className="flow-index">0{index + 1}</div>
                   <div className="flow-icon">
@@ -167,13 +288,17 @@ export default function LandingPage() {
                     <p>{item.text}</p>
                     <span>{item.note}</span>
                   </div>
-                </article>
+                  <i className="scribble-line" aria-hidden="true" />
+                </motion.article>
               );
             })}
           </div>
         </section>
 
-        <section className="reading-story section-shell reveal">
+        <motion.section
+          className="reading-story section-shell paper-sheet"
+          {...motionProps}
+        >
           <div className="story-copy">
             <Quotes weight="fill" aria-hidden="true" />
             <h2>答案不是终点，原文才是。</h2>
@@ -186,7 +311,12 @@ export default function LandingPage() {
               <span>章节内检索</span>
             </div>
           </div>
-          <div className="story-image">
+          <motion.div
+            className="story-image"
+            whileHover={reduceMotion ? undefined : { rotate: -0.45, y: -5 }}
+            transition={{ type: "spring", stiffness: 160, damping: 20 }}
+          >
+            <span className="paper-tape paper-tape-center" aria-hidden="true" />
             <img
               src={`${import.meta.env.BASE_URL}release/text-correspondence.png`}
               alt="知页智能文本与 PDF 原文段落对应高亮"
@@ -194,30 +324,44 @@ export default function LandingPage() {
               height="649"
               loading="lazy"
             />
-          </div>
-        </section>
+          </motion.div>
+          <span className="margin-note" aria-hidden="true">
+            引用不是装饰
+            <br />
+            它是一条返回路径
+          </span>
+        </motion.section>
 
         <section className="privacy section-shell" id="privacy">
-          <div className="privacy-copy reveal">
+          <motion.div className="privacy-copy" {...motionProps}>
             <div className="privacy-mark">
               <Fingerprint weight="duotone" aria-hidden="true" />
             </div>
+            <p className="hand-note">这条线，由你决定画在哪里</p>
             <h2>本地优先，是产品边界。</h2>
             <p>
               知页不会替你决定教材发给谁。你可以完全使用本地能力，也可以主动连接自己选择的智能来源。
             </p>
-          </div>
-          <div className="boundary-list reveal">
-            {boundaries.map((item) => (
-              <div key={item}>
+          </motion.div>
+          <motion.div className="boundary-list" {...motionProps}>
+            {boundaries.map((item, index) => (
+              <motion.div
+                key={item}
+                whileHover={reduceMotion ? undefined : { x: 8 }}
+              >
+                <span className="boundary-number">0{index + 1}</span>
                 <Check weight="bold" aria-hidden="true" />
                 <span>{item}</span>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </section>
 
-        <section className="download section-shell reveal" id="download">
+        <motion.section
+          className="download section-shell paper-sheet"
+          id="download"
+          {...motionProps}
+        >
           <div className="download-mark">
             <WindowsLogo weight="duotone" aria-hidden="true" />
           </div>
@@ -237,7 +381,12 @@ export default function LandingPage() {
               正式包将经过 Authenticode 签名验证
             </span>
           </div>
-        </section>
+          <PaperPlaneTilt
+            className="download-doodle"
+            weight="duotone"
+            aria-hidden="true"
+          />
+        </motion.section>
       </main>
 
       <footer>
@@ -250,7 +399,7 @@ export default function LandingPage() {
         </div>
         <p>阅读、问答、练习与笔记，始终围绕你的教材。</p>
         <div className="footer-links">
-          <a href="./app">
+          <a href="./app" onClick={handleAppEntry}>
             <NotePencil aria-hidden="true" />
             在线体验
           </a>
@@ -260,6 +409,21 @@ export default function LandingPage() {
           </a>
         </div>
       </footer>
+
+      {isLeaving ? (
+        <motion.div
+          className="page-transition"
+          initial={reduceMotion ? false : { y: "100%", rotate: 1.5 }}
+          animate={{ y: 0, rotate: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.68, ease: [0.76, 0, 0.24, 1] }}
+          aria-hidden="true"
+        >
+          <div>
+            <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
+            <span>把教材翻到工作台</span>
+          </div>
+        </motion.div>
+      ) : null}
     </div>
   );
 }

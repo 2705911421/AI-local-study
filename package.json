@@ -34,6 +34,7 @@
     "@radix-ui/react-dialog": "^1.1.23",
     "extract-zip": "^2.0.1",
     "jszip": "^3.10.1",
+    "motion": "^12.42.2",
     "pdfjs-dist": "^5.4.149",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
