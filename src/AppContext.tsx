@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type {
   ChatMessage,
+  DailyStudyMetric,
   Highlight,
   QuizAttempt,
   QuizItem,
@@ -21,9 +22,10 @@ import type {
   StudyRepository,
 } from "./lib/studyRepository";
 
-export type Overlay = "upload" | "settings" | "quiz" | null;
+export type Overlay = "upload" | "settings" | "quiz" | "review" | null;
 export type RightTab = "mentor" | "notes";
 export type MobileStudyView = "reader" | "mentor" | "notes";
+export type SearchScope = "chapter" | "document" | "library";
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 
 export interface AppContextType {
@@ -65,6 +67,8 @@ export interface AppContextType {
   setChatHydratingDocumentId: Setter<string | null>;
   isThinking: boolean;
   setIsThinking: Setter<boolean>;
+  searchScope: SearchScope;
+  setSearchScope: Setter<SearchScope>;
 
   // ── Notes ──
   notes: StudyNote[];
@@ -89,6 +93,8 @@ export interface AppContextType {
   setQuizAttempts: React.Dispatch<React.SetStateAction<QuizAttempt[]>>;
   reviewSchedules: ReviewSchedule[];
   setReviewSchedules: React.Dispatch<React.SetStateAction<ReviewSchedule[]>>;
+  dailyMetrics: DailyStudyMetric[];
+  setDailyMetrics: React.Dispatch<React.SetStateAction<DailyStudyMetric[]>>;
   quizIndex: number;
   setQuizIndex: Setter<number>;
   quizAnswer: string;
@@ -104,6 +110,8 @@ export interface AppContextType {
   quizAttemptId: string | null;
   setQuizAttemptId: (id: string | null) => void;
   quiz: QuizItem[];
+  quizItemsOverride: QuizItem[];
+  setQuizItemsOverride: Setter<QuizItem[]>;
 
   // ── Model Config ──
   config: LlmConfig;
@@ -130,6 +138,8 @@ export interface AppContextType {
   setImportProgress: (p: ImportProgress | null) => void;
   importWithOcr: boolean;
   setImportWithOcr: (v: boolean) => void;
+  importOcrLanguages: string[];
+  setImportOcrLanguages: Setter<string[]>;
 
   // ── Enhancement ──
   isEnhancing: boolean;

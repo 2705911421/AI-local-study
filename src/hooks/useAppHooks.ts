@@ -10,7 +10,13 @@ import type {
 } from "../types";
 import { useAppContext, type MobileStudyView, type Overlay, type RightTab } from "../AppContext";
 import { demoDocument } from "../lib/demo";
-import { createQuiz, retrieve } from "../lib/learningEngine";
+import {
+  createQuiz,
+  gradeAnswer,
+  retrieve,
+  retrieveDocuments,
+  scheduleReview,
+} from "../lib/learningEngine";
 import {
   askModel,
   checkModel,
@@ -21,6 +27,7 @@ import {
   getDesktopSettings,
   getProviderStatuses,
   gradeAnswerWithModel,
+  generateQuizWithModel,
   isDesktopApp,
   listModels,
   loginProvider,
@@ -118,6 +125,7 @@ export function useDocumentManager() {
     setReadingStates,
     setQuizAttempts,
     setReviewSchedules,
+    setDailyMetrics,
     setPreferences,
     setNotice,
   } = ctx;
@@ -147,6 +155,7 @@ export function useDocumentManager() {
       setReadingStates(workspace.readingStates);
       setQuizAttempts(workspace.quizAttempts);
       setReviewSchedules(workspace.reviewSchedules);
+      setDailyMetrics(workspace.dailyMetrics);
       setPreferences(workspace.preferences);
     },
     [
@@ -157,6 +166,7 @@ export function useDocumentManager() {
       setReadingStates,
       setQuizAttempts,
       setReviewSchedules,
+      setDailyMetrics,
       setPreferences,
     ],
   );
@@ -385,6 +395,8 @@ export function useChat() {
     config,
     modelOnline,
     setModelOnline,
+    documents,
+    searchScope,
   } = ctx;
 
   const questionControllerRef = ctx.questionControllerRef;
@@ -410,12 +422,22 @@ export function useChat() {
       setIsThinking(true);
 
       try {
-        let citations = retrieve(
-          question,
-          activeChapter,
-          activeDocument.chapters,
-          2,
-        );
+        let citations =
+          searchScope === "library"
+            ? retrieveDocuments(
+                question,
+                documents.filter((document) => document.kind !== "demo"),
+                activeChapter.id,
+                3,
+              )
+            : retrieve(
+                question,
+                activeChapter,
+                searchScope === "chapter"
+                  ? [activeChapter]
+                  : activeDocument.chapters,
+                3,
+              );
         if (
           citations.length === 0 &&
           /总结|概括|梳理|核心|要点/.test(question)
@@ -469,6 +491,7 @@ export function useChat() {
             text: answer,
             citations,
             status,
+            question,
           },
         ]);
       } finally {
@@ -485,6 +508,8 @@ export function useChat() {
       ctx.setNotice,
       activeChapter,
       activeDocument,
+      documents,
+      searchScope,
       config,
       modelOnline,
       questionControllerRef,
@@ -506,10 +531,16 @@ export function useChat() {
   );
 
   const setMessageFeedback = useCallback(
-    (messageId: string, feedback: "helpful" | "unhelpful") => {
+    (
+      messageId: string,
+      feedback: "helpful" | "unhelpful",
+      feedbackReason?: "irrelevant" | "unsupported" | "unclear" | "incomplete",
+    ) => {
       setMessages((current) =>
         current.map((message) =>
-          message.id === messageId ? { ...message, feedback } : message,
+          message.id === messageId
+            ? { ...message, feedback, feedbackReason }
+            : message,
         ),
       );
       ctx.setNotice("感谢反馈，已保存在本机");
@@ -647,6 +678,7 @@ export function useQuiz(quiz: QuizItem[]) {
         )
         .sort((a, b) => b.updatedAt - a.updatedAt)[0];
       if (attempt) {
+        ctx.setQuizItemsOverride(attempt.items);
         ctx.setQuizAttemptId(attempt.id);
         ctx.setQuizIndex(attempt.currentIndex);
         ctx.setQuizAnswer(attempt.draft);
@@ -654,12 +686,27 @@ export function useQuiz(quiz: QuizItem[]) {
         ctx.setQuizMastery(attempt.mastery);
         ctx.setQuizScore(attempt.scores[attempt.currentIndex] ?? null);
       } else {
+        let nextQuiz = quiz;
+        if (modelOnline) {
+          try {
+            const generated = await generateQuizWithModel(
+              activeChapter.title,
+              activeChapter.blocks,
+              Math.min(5, activeChapter.blocks.length),
+              config,
+            );
+            if (generated.length) nextQuiz = generated;
+          } catch {
+            ctx.setNotice("智能出题暂不可用，已使用本地练习");
+          }
+        }
+        ctx.setQuizItemsOverride(nextQuiz);
         ctx.setQuizAttemptId(crypto.randomUUID());
         ctx.setQuizIndex(0);
         ctx.setQuizAnswer("");
         ctx.setQuizScore(null);
-        ctx.setQuizScores(quiz.map(() => null));
-        ctx.setQuizMastery(quiz.map(() => null));
+        ctx.setQuizScores(nextQuiz.map(() => null));
+        ctx.setQuizMastery(nextQuiz.map(() => null));
       }
       setOverlay("quiz");
     } catch {
@@ -670,11 +717,12 @@ export function useQuiz(quiz: QuizItem[]) {
     activeDocument.id,
     activeChapter.id,
     quiz,
+    modelOnline,
+    config,
     setOverlay,
   ]);
 
   const gradeQuiz = useCallback(async () => {
-    const { gradeAnswer } = await import("../lib/learningEngine");
     const item = quiz[ctx.quizIndex];
     if (!item) return;
     const result = gradeAnswer(
@@ -741,18 +789,21 @@ export function useQuiz(quiz: QuizItem[]) {
   const setCurrentMastery = useCallback(
     async (value: "mastered" | "review") => {
       if (value === "review" && quiz[ctx.quizIndex]?.evidenceBlockId) {
-        const intervals = [1, 3, 7, 14, 30];
+        const evidenceBlockId = quiz[ctx.quizIndex].evidenceBlockId!;
+        const id = `${activeDocument.id}:${evidenceBlockId}`;
+        const scheduling = scheduleReview(
+          ctx.reviewSchedules.find((item) => item.id === id),
+          "good",
+        );
         const workspace = await persistCommand(
           {
             type: "saveReviewSchedule",
             reviewSchedule: {
-              id: `${activeDocument.id}:${quiz[ctx.quizIndex].evidenceBlockId}`,
+              id,
               documentId: activeDocument.id,
               chapterId: activeChapter.id,
-              evidenceBlockId: quiz[ctx.quizIndex].evidenceBlockId!,
-              intervalIndex: 0,
-              dueAt: Date.now() + intervals[0] * 24 * 60 * 60 * 1000,
-              updatedAt: Date.now(),
+              evidenceBlockId,
+              ...scheduling,
             },
           },
           "复习计划保存失败，本题状态未改变",
@@ -940,7 +991,26 @@ export function useImporter() {
         const { document: parsed } = await importPipeline.run(file, {
           signal: controller.signal,
           ocr: ctx.importWithOcr,
+          ocrLanguages: ctx.importOcrLanguages,
           onProgress: ctx.setImportProgress,
+          loadCheckpoint: async (contentHash) => {
+            const workspace = await ctx.repository.loadWorkspace();
+            return workspace.checkpoints.find(
+              (checkpoint) => checkpoint.id === contentHash,
+            );
+          },
+          saveCheckpoint: async (checkpoint) => {
+            await ctx.repository.apply({
+              type: "saveCheckpoint",
+              checkpoint,
+            });
+          },
+          deleteCheckpoint: async (checkpointId) => {
+            await ctx.repository.apply({
+              type: "deleteCheckpoint",
+              checkpointId,
+            });
+          },
         });
         const existing = documents.find(
           (document) =>
@@ -975,6 +1045,12 @@ export function useImporter() {
           type: "saveDocument",
           document: stored,
         });
+        if (stored.contentHash) {
+          await ctx.repository.apply({
+            type: "deleteCheckpoint",
+            checkpointId: stored.contentHash,
+          });
+        }
         ctx.setNotes(workspace.notes);
         setDocuments((current) => [
           demoDocument,
@@ -1044,6 +1120,37 @@ export function useEnhancement() {
         ctx.setEnhanceError("请先选择需要生成智能文本的原文");
         return;
       }
+      const estimatedInputTokens = Math.ceil(
+        targetBlocks.reduce(
+          (total, block) => total + (block.smartText || block.text).length,
+          0,
+        ) / 1.8,
+      );
+      const estimatedOutputTokens = Math.ceil(estimatedInputTokens * 0.8);
+      if (
+        !window.confirm(
+          `预计输入约 ${estimatedInputTokens.toLocaleString()} Token，输出约 ${estimatedOutputTokens.toLocaleString()} Token。\n\n是否开始？`,
+        )
+      ) {
+        return;
+      }
+      const jobId = `${activeDocument.id}:${activeChapter.id}:enhance`;
+      const baseJob = {
+        id: jobId,
+        documentId: activeDocument.id,
+        chapterId: activeChapter.id,
+        blockIds: targetBlocks.map((block) => block.id),
+        completedBlockIds: [] as string[],
+        failedBlockIds: [] as string[],
+        status: "running" as const,
+        estimatedInputTokens,
+        estimatedOutputTokens,
+        updatedAt: Date.now(),
+      };
+      await ctx.repository.apply({
+        type: "saveEnhancementJob",
+        job: baseJob,
+      });
       ctx.enhancementControllerRef.current?.abort();
       const controller = new AbortController();
       ctx.enhancementControllerRef.current = controller;
@@ -1054,8 +1161,19 @@ export function useEnhancement() {
         const enhanced = await enhanceTextBlocks(
           targetBlocks,
           config,
-          (completed, total) =>
-            ctx.setEnhanceProgress(`正在整理 ${completed} / ${total} 组原文`),
+          (completed, total) => {
+            ctx.setEnhanceProgress(`正在整理 ${completed} / ${total} 组原文`);
+            void ctx.repository.apply({
+              type: "saveEnhancementJob",
+              job: {
+                ...baseJob,
+                completedBlockIds: targetBlocks
+                  .slice(0, completed)
+                  .map((block) => block.id),
+                updatedAt: Date.now(),
+              },
+            });
+          },
           controller.signal,
         );
         if (controller.signal.aborted) return;
@@ -1081,10 +1199,39 @@ export function useEnhancement() {
           type: "saveDocument",
           document: updatedDocument,
         });
+        await ctx.repository.apply({
+          type: "saveEnhancementJob",
+          job: {
+            ...baseJob,
+            completedBlockIds: targetBlocks.map((block) => block.id),
+            status: "completed",
+            updatedAt: Date.now(),
+          },
+        });
         ctx.setEnhanceProgress(`已生成 ${enhanced.size} 个智能文本片段`);
         return enhanced.size;
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted) {
+          await ctx.repository.apply({
+            type: "saveEnhancementJob",
+            job: {
+              ...baseJob,
+              status: "paused",
+              updatedAt: Date.now(),
+            },
+          });
+          return;
+        }
+        await ctx.repository.apply({
+          type: "saveEnhancementJob",
+          job: {
+            ...baseJob,
+            status: "failed",
+            failedBlockIds: targetBlocks.map((block) => block.id),
+            error: error instanceof Error ? error.message : "智能文本生成失败",
+            updatedAt: Date.now(),
+          },
+        });
         ctx.setEnhanceError(
           error instanceof Error ? error.message : "智能文本生成失败",
         );
@@ -1103,6 +1250,11 @@ export function useEnhancement() {
     const count = await runEnhancement(activeChapter.blocks);
     if (count) ctx.setReaderMode("text");
   }, [runEnhancement, activeChapter, ctx]);
+
+  const cancelEnhancement = useCallback(() => {
+    ctx.enhancementControllerRef.current?.abort();
+    ctx.setEnhanceProgress("任务已暂停，可再次开始继续处理");
+  }, [ctx]);
 
   const enhanceSelectedBlocks = useCallback(async () => {
     const selected = activeDocument.chapters
@@ -1340,6 +1492,7 @@ export function useEnhancement() {
     enhanceSelectedBlocks,
     rebuildActiveDocumentSegments,
     explainCurrentPageImage,
+    cancelEnhancement,
   };
 }
 

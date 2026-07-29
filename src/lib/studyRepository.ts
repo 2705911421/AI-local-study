@@ -1,5 +1,7 @@
 import type {
   ChatSession,
+  DailyStudyMetric,
+  EnhancementJob,
   Highlight,
   ImportCheckpoint,
   QuizAttempt,
@@ -17,7 +19,7 @@ import {
 } from "./backupCrypto";
 
 const DB_NAME = "zhiye-local";
-const DB_VERSION = 2;
+const DB_VERSION = 4;
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const STORES = [
   "documents",
@@ -28,6 +30,8 @@ const STORES = [
   "quizAttempts",
   "reviewSchedules",
   "checkpoints",
+  "dailyMetrics",
+  "enhancementJobs",
   "preferences",
 ] as const;
 
@@ -42,6 +46,8 @@ export interface WorkspaceSnapshot {
   quizAttempts: QuizAttempt[];
   reviewSchedules: ReviewSchedule[];
   checkpoints: ImportCheckpoint[];
+  dailyMetrics: DailyStudyMetric[];
+  enhancementJobs: EnhancementJob[];
   preferences: UserPreferences;
 }
 
@@ -61,15 +67,20 @@ export type StudyCommand =
   | { type: "saveQuizAttempt"; quizAttempt: QuizAttempt }
   | { type: "saveReviewSchedule"; reviewSchedule: ReviewSchedule }
   | { type: "saveCheckpoint"; checkpoint: ImportCheckpoint }
+  | { type: "deleteCheckpoint"; checkpointId: string }
+  | { type: "saveDailyMetric"; metric: DailyStudyMetric }
+  | { type: "saveEnhancementJob"; job: EnhancementJob }
+  | { type: "deleteEnhancementJob"; jobId: string }
   | { type: "savePreferences"; preferences: UserPreferences };
 
 export interface StudyRepository {
   loadWorkspace(): Promise<WorkspaceSnapshot>;
   apply(command: StudyCommand): Promise<WorkspaceSnapshot>;
+  exportPortableBackup(): Promise<Blob>;
   exportBackup(passphrase: string): Promise<Blob>;
   restoreBackup(
     backup: Blob,
-    options?: { passphrase?: string },
+    options?: { passphrase?: string; mode?: "replace" | "merge" },
   ): Promise<WorkspaceSnapshot>;
 }
 
@@ -96,6 +107,8 @@ interface Seed {
   quizAttempts?: QuizAttempt[];
   reviewSchedules?: ReviewSchedule[];
   checkpoints?: ImportCheckpoint[];
+  dailyMetrics?: DailyStudyMetric[];
+  enhancementJobs?: EnhancementJob[];
   preferences?: UserPreferences;
   legacyNotes?: LegacyNote[];
 }
@@ -106,6 +119,20 @@ function normalizeDocument(document: StudyDocument): StudyDocument {
     displayTitle: document.displayTitle || document.title,
     updatedAt: document.updatedAt || document.createdAt,
     lastOpenedAt: document.lastOpenedAt || document.createdAt,
+  };
+}
+
+function normalizeReviewSchedule(schedule: ReviewSchedule): ReviewSchedule {
+  const legacyIntervals = [1, 3, 7, 14, 30];
+  const intervalDays =
+    schedule.intervalDays ??
+    legacyIntervals[Math.min(schedule.intervalIndex ?? 0, legacyIntervals.length - 1)];
+  return {
+    ...schedule,
+    intervalDays,
+    easeFactor: schedule.easeFactor ?? 2.5,
+    repetitions: schedule.repetitions ?? Math.max(0, schedule.intervalIndex ?? 0),
+    lapses: schedule.lapses ?? 0,
   };
 }
 
@@ -137,8 +164,10 @@ function createSnapshot(seed: Seed = {}): WorkspaceSnapshot {
     readingStates: seed.readingStates || [],
     chatSessions: seed.chatSessions || [],
     quizAttempts: seed.quizAttempts || [],
-    reviewSchedules: seed.reviewSchedules || [],
+    reviewSchedules: (seed.reviewSchedules || []).map(normalizeReviewSchedule),
     checkpoints: seed.checkpoints || [],
+    dailyMetrics: seed.dailyMetrics || [],
+    enhancementJobs: seed.enhancementJobs || [],
     preferences: seed.preferences || DEFAULT_PREFERENCES,
   };
 }
@@ -158,6 +187,12 @@ function recordsForDocument(snapshot: WorkspaceSnapshot, documentId: string) {
     (item) => item.documentId !== documentId,
   );
   snapshot.reviewSchedules = snapshot.reviewSchedules.filter(
+    (item) => item.documentId !== documentId,
+  );
+  snapshot.dailyMetrics = snapshot.dailyMetrics.filter(
+    (item) => item.documentId !== documentId,
+  );
+  snapshot.enhancementJobs = snapshot.enhancementJobs.filter(
     (item) => item.documentId !== documentId,
   );
 }
@@ -273,7 +308,7 @@ function applyToSnapshot(
     case "saveReviewSchedule":
       snapshot.reviewSchedules = upsert(
         snapshot.reviewSchedules,
-        command.reviewSchedule,
+        normalizeReviewSchedule(command.reviewSchedule),
         (item) => item.id,
       );
       break;
@@ -284,6 +319,30 @@ function applyToSnapshot(
         (item) => item.id,
       );
       break;
+    case "deleteCheckpoint":
+      snapshot.checkpoints = snapshot.checkpoints.filter(
+        (item) => item.id !== command.checkpointId,
+      );
+      break;
+    case "saveDailyMetric":
+      snapshot.dailyMetrics = upsert(
+        snapshot.dailyMetrics,
+        command.metric,
+        (item) => item.id,
+      );
+      break;
+    case "saveEnhancementJob":
+      snapshot.enhancementJobs = upsert(
+        snapshot.enhancementJobs,
+        command.job,
+        (item) => item.id,
+      );
+      break;
+    case "deleteEnhancementJob":
+      snapshot.enhancementJobs = snapshot.enhancementJobs.filter(
+        (item) => item.id !== command.jobId,
+      );
+      break;
     case "savePreferences":
       snapshot.preferences = command.preferences;
       break;
@@ -292,7 +351,7 @@ function applyToSnapshot(
 }
 
 interface BackupManifest {
-  version: 1;
+  version: 1 | 2;
   exportedAt: number;
   workspace: Omit<WorkspaceSnapshot, "documents"> & {
     documents: Array<Omit<StudyDocument, "originalFile">>;
@@ -306,7 +365,7 @@ async function exportSnapshot(snapshot: WorkspaceSnapshot): Promise<Blob> {
     ({ originalFile: _originalFile, ...document }) => document,
   );
   const manifest: BackupManifest = {
-    version: 1,
+    version: 2,
     exportedAt: Date.now(),
     workspace: { ...snapshot, documents },
   };
@@ -342,7 +401,10 @@ async function importSnapshot(blob: Blob): Promise<WorkspaceSnapshot> {
   const manifestFile = zip.file("manifest.json");
   if (!manifestFile) throw new Error("备份缺少 manifest.json");
   const manifest = JSON.parse(await manifestFile.async("string")) as BackupManifest;
-  if (manifest.version !== 1 || !Array.isArray(manifest.workspace.documents)) {
+  if (
+    ![1, 2].includes(manifest.version) ||
+    !Array.isArray(manifest.workspace.documents)
+  ) {
     throw new Error("不支持的知页备份版本");
   }
   const documents = await Promise.all(
@@ -357,6 +419,70 @@ async function importSnapshot(blob: Blob): Promise<WorkspaceSnapshot> {
     }),
   );
   return createSnapshot({ ...manifest.workspace, documents });
+}
+
+function newestById<T extends { id: string; updatedAt?: number }>(
+  current: T[],
+  incoming: T[],
+): T[] {
+  const merged = new Map(current.map((item) => [item.id, item]));
+  for (const item of incoming) {
+    const previous = merged.get(item.id);
+    if (!previous || (item.updatedAt || 0) >= (previous.updatedAt || 0)) {
+      merged.set(item.id, item);
+    }
+  }
+  return [...merged.values()];
+}
+
+function mergeSnapshots(
+  current: WorkspaceSnapshot,
+  incoming: WorkspaceSnapshot,
+): WorkspaceSnapshot {
+  const documents = [...current.documents];
+  for (const document of incoming.documents) {
+    const duplicateIndex = documents.findIndex(
+      (candidate) =>
+        candidate.id === document.id ||
+        (candidate.contentHash &&
+          document.contentHash &&
+          candidate.contentHash === document.contentHash),
+    );
+    if (duplicateIndex < 0) {
+      documents.push(document);
+    } else if (
+      (document.updatedAt || document.createdAt) >=
+      (documents[duplicateIndex].updatedAt || documents[duplicateIndex].createdAt)
+    ) {
+      documents[duplicateIndex] = document;
+    }
+  }
+  return createSnapshot({
+    documents,
+    notes: newestById(current.notes, incoming.notes),
+    highlights: newestById(current.highlights, incoming.highlights),
+    readingStates: newestById(
+      current.readingStates.map((item) => ({ ...item, id: item.documentId })),
+      incoming.readingStates.map((item) => ({ ...item, id: item.documentId })),
+    ).map(({ id: _id, ...item }) => item),
+    chatSessions: newestById(
+      current.chatSessions.map((item) => ({ ...item, id: item.documentId })),
+      incoming.chatSessions.map((item) => ({ ...item, id: item.documentId })),
+    ).map(({ id: _id, ...item }) => item),
+    quizAttempts: newestById(current.quizAttempts, incoming.quizAttempts),
+    reviewSchedules: newestById(
+      current.reviewSchedules,
+      incoming.reviewSchedules,
+    ),
+    checkpoints: newestById(current.checkpoints, incoming.checkpoints),
+    dailyMetrics: newestById(current.dailyMetrics, incoming.dailyMetrics),
+    enhancementJobs: newestById(
+      current.enhancementJobs,
+      incoming.enhancementJobs,
+    ),
+    preferences:
+      incoming.preferences || current.preferences || DEFAULT_PREFERENCES,
+  });
 }
 
 async function decodeBackup(
@@ -384,8 +510,15 @@ export function createMemoryStudyRepository(seed: Seed = {}): StudyRepository {
     async exportBackup(passphrase) {
       return encryptBackupPayload(await exportSnapshot(snapshot), passphrase);
     },
+    async exportPortableBackup() {
+      return exportSnapshot(snapshot);
+    },
     async restoreBackup(backup, options = {}) {
-      snapshot = await decodeBackup(backup, options.passphrase);
+      const incoming = await decodeBackup(backup, options.passphrase);
+      snapshot =
+        options.mode === "merge"
+          ? mergeSnapshots(snapshot, incoming)
+          : incoming;
       return structuredClone(snapshot);
     },
   };
@@ -432,6 +565,8 @@ async function loadBrowserSnapshot(db: IDBDatabase): Promise<WorkspaceSnapshot> 
     quizAttempts,
     reviewSchedules,
     checkpoints,
+    dailyMetrics,
+    enhancementJobs,
     preferencesRecords,
   ] = await Promise.all([
     readAll<StudyDocument>(db, "documents"),
@@ -442,6 +577,8 @@ async function loadBrowserSnapshot(db: IDBDatabase): Promise<WorkspaceSnapshot> 
     readAll<QuizAttempt>(db, "quizAttempts"),
     readAll<ReviewSchedule>(db, "reviewSchedules"),
     readAll<ImportCheckpoint>(db, "checkpoints"),
+    readAll<DailyStudyMetric>(db, "dailyMetrics"),
+    readAll<EnhancementJob>(db, "enhancementJobs"),
     readAll<UserPreferences & { id: string }>(db, "preferences"),
   ]);
   return createSnapshot({
@@ -453,6 +590,8 @@ async function loadBrowserSnapshot(db: IDBDatabase): Promise<WorkspaceSnapshot> 
     quizAttempts,
     reviewSchedules,
     checkpoints,
+    dailyMetrics,
+    enhancementJobs,
     preferences: preferencesRecords[0] || DEFAULT_PREFERENCES,
   });
 }
@@ -513,6 +652,18 @@ async function persistIncremental(db: IDBDatabase, snapshot: WorkspaceSnapshot, 
       case "saveCheckpoint":
         storeWrites.set("checkpoints", [command.checkpoint]);
         break;
+      case "deleteCheckpoint":
+        storeDeletes.set("checkpoints", [command.checkpointId]);
+        break;
+      case "saveDailyMetric":
+        storeWrites.set("dailyMetrics", [command.metric]);
+        break;
+      case "saveEnhancementJob":
+        storeWrites.set("enhancementJobs", [command.job]);
+        break;
+      case "deleteEnhancementJob":
+        storeDeletes.set("enhancementJobs", [command.jobId]);
+        break;
       case "savePreferences":
         storeWrites.set("preferences", [{ id: "user", ...command.preferences }]);
         break;
@@ -552,6 +703,8 @@ async function persistSnapshot(db: IDBDatabase, snapshot: WorkspaceSnapshot) {
       quizAttempts: snapshot.quizAttempts,
       reviewSchedules: snapshot.reviewSchedules,
       checkpoints: snapshot.checkpoints,
+      dailyMetrics: snapshot.dailyMetrics,
+      enhancementJobs: snapshot.enhancementJobs,
       preferences: [{ id: "user", ...snapshot.preferences }],
     };
     for (const storeName of STORES) {
@@ -618,13 +771,20 @@ export function createBrowserStudyRepository(): StudyRepository {
         passphrase,
       );
     },
+    async exportPortableBackup() {
+      return exportSnapshot(await loadAndMigrate());
+    },
     restoreBackup(backup, options = {}) {
       const operation = mutationQueue.then(async () => {
         const incoming = await decodeBackup(backup, options.passphrase);
         const db = await openDb();
         try {
-          await persistSnapshot(db, incoming);
-          return incoming;
+          const next =
+            options.mode === "merge"
+              ? mergeSnapshots(await loadBrowserSnapshot(db), incoming)
+              : incoming;
+          await persistSnapshot(db, next);
+          return next;
         } finally {
           db.close();
         }

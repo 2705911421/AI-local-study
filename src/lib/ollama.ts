@@ -1,4 +1,4 @@
-import type { Citation, TextBlock } from "../types";
+import type { Citation, QuizItem, TextBlock } from "../types";
 
 export type LlmProvider = "ollama" | "openai-compatible";
 
@@ -243,6 +243,56 @@ export async function gradeAnswerWithModel(
     throw new Error("模型评分缺少必要字段");
   }
   return value as ModelGrade;
+}
+
+export async function generateQuizWithModel(
+  chapterTitle: string,
+  blocks: TextBlock[],
+  count: number,
+  config: LlmConfig,
+  signal?: AbortSignal,
+): Promise<QuizItem[]> {
+  const content = await chat(
+    [
+      {
+        role: "system",
+        content:
+          '你是教材练习设计器。只能依据给出的教材段落生成练习。严格返回 JSON：{"quiz":[{"id":"题目ID","kind":"recall|distinguish|choice|application","prompt":"问题","answer":"参考答案","rationale":"教材内解析","locator":"原定位","evidenceBlockId":"原段落ID","keyPoints":["要点"],"options":[]}]}。',
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          chapterTitle,
+          count,
+          blocks: blocks.map((block) => ({
+            id: block.id,
+            locator: block.locator,
+            text: block.smartText || block.text,
+          })),
+        }),
+      },
+    ],
+    config,
+    { temperature: 0.3, maxTokens: 2400, signal, timeoutMs: 60_000 },
+  );
+  const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] || content;
+  const start = fenced.indexOf("{");
+  const end = fenced.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("模型出题格式不正确");
+  const value = JSON.parse(fenced.slice(start, end + 1)) as { quiz?: QuizItem[] };
+  if (!Array.isArray(value.quiz) || !value.quiz.length) {
+    throw new Error("模型没有返回有效练习题");
+  }
+  const sourceIds = new Set(blocks.map((block) => block.id));
+  return value.quiz
+    .filter(
+      (item) =>
+        item &&
+        typeof item.prompt === "string" &&
+        typeof item.answer === "string" &&
+        Boolean(item.evidenceBlockId && sourceIds.has(item.evidenceBlockId)),
+    )
+    .slice(0, count);
 }
 
 export async function checkModel(

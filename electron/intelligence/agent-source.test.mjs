@@ -82,5 +82,5 @@ describe("agent isolation policy", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });

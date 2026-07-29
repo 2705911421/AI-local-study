@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   safeStorage,
   shell,
@@ -11,9 +12,14 @@ import { createAgentSource } from "./intelligence/agent-source.mjs";
 import { IntelligenceRuntime } from "./intelligence/runtime.mjs";
 import { createSafeLogger } from "./safe-log.mjs";
 import { SettingsStore } from "./settings-store.mjs";
+import updaterPackage from "electron-updater";
+import { UpdateService } from "./update-service.mjs";
+import { BackupService } from "./backup-service.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 let runtime;
+let updateService;
+let backupService;
 
 app.setName("知页");
 if (process.env.ZHIYE_TEST_USER_DATA) {
@@ -37,9 +43,18 @@ app.whenReady().then(async () => {
     settingsStore,
     log: createSafeLogger(userData),
   });
+  updateService = new UpdateService({
+    updater: updaterPackage.autoUpdater,
+    feedUrl: process.env.ZHIYE_UPDATE_URL,
+    packaged: app.isPackaged,
+  });
+  backupService = new BackupService({ userData, safeStorage });
   await runtime.initialize();
-  registerHandlers(runtime, settingsStore);
+  registerHandlers(runtime, settingsStore, updateService, backupService);
   createWindow();
+  if (updateService.enabled) {
+    setTimeout(() => void updateService.check(), 5_000);
+  }
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -87,7 +102,7 @@ function createWindow() {
   }
 }
 
-function registerHandlers(intelligence, settingsStore) {
+function registerHandlers(intelligence, settingsStore, updates, backups) {
   const handle = (channel, handler) => {
     ipcMain.removeHandler(channel);
     ipcMain.handle(channel, (_event, payload) => handler(payload));
@@ -109,4 +124,27 @@ function registerHandlers(intelligence, settingsStore) {
   );
   handle("intelligence:invoke", (request) => intelligence.invoke(request));
   handle("intelligence:cancel", (requestId) => intelligence.cancel(requestId));
+  handle("updates:get-status", () => updates.status());
+  handle("updates:check", () => updates.check());
+  handle("updates:install", () => updates.install());
+  handle("backup:get-settings", () => backups.settings());
+  handle("backup:choose-directory", async (payload) => {
+    const selection = await dialog.showOpenDialog({
+      properties: ["openDirectory", "createDirectory"],
+      title: "选择知页自动备份目录",
+    });
+    if (selection.canceled || !selection.filePaths[0]) return backups.settings();
+    return backups.configure({
+      directory: selection.filePaths[0],
+      passphrase: payload?.passphrase,
+      enabled: true,
+    });
+  });
+  handle("backup:disable", async () => {
+    const current = await backups.settings();
+    return backups.configure({ ...current, enabled: false, passphrase: "" });
+  });
+  handle("backup:write", (payload) =>
+    backups.writePortableBackup(new Uint8Array(payload)),
+  );
 }

@@ -81,6 +81,42 @@ try {
     `${digest}  ${installerName}\n`,
     "utf8",
   );
+  if (requireSignature) {
+    const installerBytes = await readFile(builtInstaller);
+    const sha512 = createHash("sha512").update(installerBytes).digest("base64");
+    const releaseDate = new Date().toISOString();
+    const latestYaml = [
+      `version: ${packageJson.version}`,
+      `files:`,
+      `  - url: ${installerName}`,
+      `    sha512: ${sha512}`,
+      `    size: ${installerBytes.byteLength}`,
+      `path: ${installerName}`,
+      `sha512: ${sha512}`,
+      `releaseDate: '${releaseDate}'`,
+      "",
+    ].join("\n");
+    await writeFile(
+      path.join(artifacts, "latest.yml"),
+      latestYaml,
+      "utf8",
+    );
+    await writeFile(
+      path.join(artifacts, "release-notes.json"),
+      JSON.stringify(
+        {
+          version: packageJson.version,
+          filename: installerName,
+          size: installerBytes.byteLength,
+          sha256: digest,
+          releaseDate,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  }
   console.log(`Desktop installer: ${path.join(artifacts, installerName)}`);
   console.log(`SHA-256: ${digest}`);
   if (allowUnsigned) {

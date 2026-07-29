@@ -1,4 +1,4 @@
-import type { StudyDocument } from "../types";
+import type { ImportCheckpoint, StudyDocument } from "../types";
 import {
   createOcrDocument,
   parseDocument,
@@ -24,6 +24,10 @@ export interface ImportOptions {
   signal?: AbortSignal;
   onProgress?: (progress: ImportProgress) => void;
   ocr?: boolean;
+  ocrLanguages?: string[];
+  loadCheckpoint?: (contentHash: string) => Promise<ImportCheckpoint | undefined>;
+  saveCheckpoint?: (checkpoint: ImportCheckpoint) => Promise<void>;
+  deleteCheckpoint?: (checkpointId: string) => Promise<void>;
 }
 
 export interface ImportResult {
@@ -55,6 +59,8 @@ async function sha256(file: File): Promise<string> {
 async function parseScannedPdf(
   file: File,
   options: ImportOptions,
+  contentHash: string,
+  checkpoint?: ImportCheckpoint,
 ): Promise<StudyDocument> {
   const [{ createWorker }, pdfjsLib] = await Promise.all([
     import("tesseract.js"),
@@ -69,7 +75,10 @@ async function parseScannedPdf(
   });
   const pdf = await loadingTask.promise;
   let currentPage = 0;
-  const worker = await createWorker(["chi_sim", "eng"], undefined, {
+  const languages = options.ocrLanguages?.length
+    ? options.ocrLanguages
+    : ["chi_sim", "eng"];
+  const worker = await createWorker(languages, undefined, {
     logger(message) {
       if (message.status === "recognizing text") {
         options.onProgress?.({
@@ -88,8 +97,14 @@ async function parseScannedPdf(
   };
   options.signal?.addEventListener("abort", abortWorker, { once: true });
   try {
-    const pageTexts: string[] = [];
+    const pageTexts: string[] = Array.from(
+      { length: pdf.numPages },
+      (_, index) => checkpoint?.pageTexts?.[String(index + 1)] || "",
+    );
+    const completedPages = new Set(checkpoint?.completedPages || []);
+    const errorPages = new Set(checkpoint?.errorPages || []);
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      if (completedPages.has(pageNumber) && pageTexts[pageNumber - 1]) continue;
       currentPage = pageNumber;
       throwIfAborted(options.signal);
       options.onProgress?.({
@@ -107,10 +122,54 @@ async function parseScannedPdf(
       if (!context) throw new Error("浏览器无法创建 OCR 画布");
       await page.render({ canvas, canvasContext: context, viewport }).promise;
       throwIfAborted(options.signal);
-      const result = await worker.recognize(canvas);
-      pageTexts.push(result.data.text);
+      let recognized = "";
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const result = await worker.recognize(canvas);
+          recognized = result.data.text;
+          lastError = undefined;
+          break;
+        } catch (error) {
+          lastError = error;
+          throwIfAborted(options.signal);
+        }
+      }
+      if (lastError) {
+        errorPages.add(pageNumber);
+      } else {
+        pageTexts[pageNumber - 1] = recognized;
+        completedPages.add(pageNumber);
+        errorPages.delete(pageNumber);
+      }
+      await options.saveCheckpoint?.({
+        id: contentHash,
+        filename: file.name,
+        fileSize: file.size,
+        lastModified: file.lastModified,
+        contentHash,
+        stage: "ocr",
+        completedPages: [...completedPages],
+        errorPages: [...errorPages],
+        totalPages: pdf.numPages,
+        pageTexts: Object.fromEntries(
+          pageTexts
+            .map((text, index) => [String(index + 1), text] as const)
+            .filter(([, text]) => Boolean(text)),
+        ),
+        ocrLanguages: languages,
+        updatedAt: Date.now(),
+      });
       canvas.width = 1;
       canvas.height = 1;
+    }
+    if (errorPages.size) {
+      options.onProgress?.({
+        stage: "ocr",
+        message: `${errorPages.size} 页识别失败，已跳过并保留检查点`,
+        completed: completedPages.size,
+        total: pdf.numPages,
+      });
     }
     return createOcrDocument(file, pageTexts);
   } finally {
@@ -141,6 +200,7 @@ export function createImportPipeline(
         message: "正在读取文件并计算本地指纹",
       });
       const contentHash = await sha256(file);
+      const checkpoint = await options.loadCheckpoint?.(contentHash);
       throwIfAborted(options.signal);
 
       options.onProgress?.({
@@ -159,7 +219,12 @@ export function createImportPipeline(
           /扫描版|提取文字|OCR/.test(error.message)
         ) {
           usedOcr = true;
-          document = await parseScannedPdf(file, options);
+          document = await parseScannedPdf(
+            file,
+            options,
+            contentHash,
+            checkpoint,
+          );
         } else {
           throw error;
         }

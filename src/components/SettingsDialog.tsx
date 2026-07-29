@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   GearSix,
@@ -8,6 +8,10 @@ import {
   X,
 } from "@phosphor-icons/react";
 import type { UserPreferences } from "../types";
+import type {
+  DesktopAutoBackupSettings,
+  DesktopUpdateStatus,
+} from "../lib/intelligence/types";
 import {
   isDesktopApp,
   type LlmProvider,
@@ -35,7 +39,11 @@ export function SettingsDialog({
   onChangeAgentLogin: (action: "login" | "logout") => void;
   onClearApiKey: () => Promise<boolean>;
   onExportBackup: (passphrase: string) => Promise<boolean>;
-  onRestoreBackup: (file: File, passphrase?: string) => Promise<boolean>;
+  onRestoreBackup: (
+    file: File,
+    passphrase?: string,
+    mode?: "replace" | "merge",
+  ) => Promise<boolean>;
   onSavePreferences: (next: UserPreferences) => void;
 }) {
   const ctx = useAppContext();
@@ -58,6 +66,31 @@ export function SettingsDialog({
   const [legacyConfirmed, setLegacyConfirmed] = useState(false);
   const [backupError, setBackupError] = useState("");
   const [backupBusy, setBackupBusy] = useState(false);
+  const [restoreMode, setRestoreMode] = useState<"replace" | "merge">("merge");
+  const [updateStatus, setUpdateStatus] =
+    useState<DesktopUpdateStatus | null>(null);
+  const [autoBackup, setAutoBackup] =
+    useState<DesktopAutoBackupSettings | null>(null);
+
+  useEffect(() => {
+    if (ctx.overlay !== "settings" || !window.zhiyeDesktop) return;
+    let cancelled = false;
+    void window.zhiyeDesktop.getUpdateStatus().then((status) => {
+      if (!cancelled) setUpdateStatus(status);
+    });
+    void window.zhiyeDesktop.getAutoBackupSettings().then((settings) => {
+      if (!cancelled) setAutoBackup(settings);
+    });
+    const timer = window.setInterval(() => {
+      void window.zhiyeDesktop?.getUpdateStatus().then((status) => {
+        if (!cancelled) setUpdateStatus(status);
+      });
+    }, 1_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [ctx.overlay]);
 
   const clearBackupSecrets = () => {
     setBackupPassword("");
@@ -114,6 +147,7 @@ export function SettingsDialog({
       const restored = await onRestoreBackup(
         backupFile,
         backupFormat === "encrypted-v2" ? backupPassword : undefined,
+        restoreMode,
       );
       if (restored) {
         setBackupFile(null);
@@ -265,6 +299,46 @@ export function SettingsDialog({
                 <DownloadSimple size={15} />
                   导出加密备份
                 </button>
+                {isDesktopApp() && (
+                  <div className="auto-backup-control">
+                    <div>
+                      <strong>每日自动备份</strong>
+                      <span>
+                        {autoBackup?.enabled
+                          ? `已启用 · 保留 ${autoBackup.retention} 份`
+                          : "默认关闭，密码由 Windows 安全存储保护"}
+                      </span>
+                    </div>
+                    {autoBackup?.enabled ? (
+                      <button
+                        className="secondary-button"
+                        onClick={async () =>
+                          setAutoBackup(
+                            await window.zhiyeDesktop!.disableAutoBackup(),
+                          )
+                        }
+                      >
+                        关闭
+                      </button>
+                    ) : (
+                      <button
+                        className="secondary-button"
+                        disabled={backupPassword.length < 12}
+                        onClick={async () => {
+                          validateBackupPassphrase(backupPassword);
+                          setAutoBackup(
+                            await window.zhiyeDesktop!.chooseAutoBackupDirectory(
+                              backupPassword,
+                            ),
+                          );
+                          clearBackupSecrets();
+                        }}
+                      >
+                        选择目录并启用
+                      </button>
+                    )}
+                  </div>
+                )}
                 <label className="secondary-button">
                   <FileArrowUp size={15} />
                   选择备份
@@ -276,6 +350,22 @@ export function SettingsDialog({
                     }
                   />
                 </label>
+                {backupFile && (
+                  <label>
+                    恢复方式
+                    <select
+                      value={restoreMode}
+                      onChange={(event) =>
+                        setRestoreMode(
+                          event.target.value as "replace" | "merge",
+                        )
+                      }
+                    >
+                      <option value="merge">合并恢复（保留较新记录）</option>
+                      <option value="replace">替换当前全部数据</option>
+                    </select>
+                  </label>
+                )}
                 <button
                   className="secondary-button"
                   onClick={() => void restoreSelectedBackup()}
@@ -310,6 +400,47 @@ export function SettingsDialog({
                 </div>
               )}
             </section>
+            {isDesktopApp() && updateStatus && (
+              <section className="update-settings" aria-labelledby="update-title">
+                <h3 id="update-title">应用更新</h3>
+                <p>
+                  {updateStatus.message ||
+                    (updateStatus.status === "idle"
+                      ? "可检查签名更新"
+                      : "更新服务已就绪")}
+                </p>
+                {updateStatus.status === "downloading" && (
+                  <progress value={updateStatus.progress} max={100}>
+                    {updateStatus.progress}%
+                  </progress>
+                )}
+                <div className="settings-actions">
+                  <button
+                    className="secondary-button"
+                    disabled={
+                      updateStatus.status === "checking" ||
+                      updateStatus.status === "downloading" ||
+                      updateStatus.status === "disabled"
+                    }
+                    onClick={async () =>
+                      setUpdateStatus(
+                        await window.zhiyeDesktop!.checkForUpdates(),
+                      )
+                    }
+                  >
+                    检查更新
+                  </button>
+                  {updateStatus.status === "ready" && (
+                    <button
+                      className="primary-button"
+                      onClick={() => void window.zhiyeDesktop!.installUpdate()}
+                    >
+                      重启并安装 {updateStatus.availableVersion}
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
             <h3>AI 服务</h3>
             <label>
               服务类型

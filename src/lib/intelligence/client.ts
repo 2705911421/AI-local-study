@@ -7,6 +7,7 @@ import {
   enhanceTextBlocks as enhanceBrowserBlocks,
   explainPageImage as explainBrowserImage,
   gradeAnswerWithModel as gradeBrowserAnswer,
+  generateQuizWithModel as generateBrowserQuiz,
   listModels as listBrowserModels,
 } from "../ollama";
 import type {
@@ -274,6 +275,33 @@ export async function gradeAnswerWithModel(
   );
   if (!result.grade) throw new Error("智能来源没有返回有效评分");
   return result.grade;
+}
+
+export async function generateQuizWithModel(
+  chapterTitle: string,
+  blocks: TextBlock[],
+  count: number,
+  config: IntelligenceConfig,
+  signal?: AbortSignal,
+) {
+  if (!window.zhiyeDesktop) {
+    if (!isBrowserProvider(config)) throw new Error("该来源仅在桌面版可用");
+    return generateBrowserQuiz(
+      chapterTitle,
+      blocks,
+      count,
+      browserConfig(config),
+      signal,
+    );
+  }
+  const result = await invokeDesktop(
+    "generate-quiz",
+    { chapterTitle, blocks, count },
+    config,
+    signal,
+  );
+  if (!result.quiz?.length) throw new Error("智能来源没有返回有效练习题");
+  return result.quiz;
 }
 
 export async function explainPageImage(

@@ -1,4 +1,4 @@
-import type { Citation, TextBlock } from "../../types";
+import type { Citation, QuizItem, TextBlock } from "../../types";
 
 export type ProviderId =
   | "codex"
@@ -11,6 +11,7 @@ export type IntelligenceTask =
   | "enhance-blocks"
   | "enhance-selection"
   | "grade"
+  | "generate-quiz"
   | "explain-image";
 
 export interface IntelligenceConfig {
@@ -65,11 +66,18 @@ export interface ExplainImagePayload {
   page: number;
 }
 
+export interface GenerateQuizPayload {
+  chapterTitle: string;
+  blocks: TextBlock[];
+  count: number;
+}
+
 export interface IntelligencePayloadMap {
   answer: AnswerPayload;
   "enhance-blocks": EnhanceBlocksPayload;
   "enhance-selection": EnhanceSelectionPayload;
   grade: GradePayload;
+  "generate-quiz": GenerateQuizPayload;
   "explain-image": ExplainImagePayload;
 }
 
@@ -93,6 +101,7 @@ export interface IntelligenceResult {
   text?: string;
   blocks?: Array<{ id: string; text: string }>;
   grade?: ModelGrade;
+  quiz?: QuizItem[];
 }
 
 export interface DesktopSavedSettings {
@@ -125,6 +134,37 @@ export interface DesktopIntelligenceBridge {
   listModels(config: Omit<IntelligenceConfig, "apiKey">): Promise<string[]>;
   invoke(request: IntelligenceRequest): Promise<IntelligenceResult>;
   cancel(requestId: string): Promise<void>;
+  getUpdateStatus(): Promise<DesktopUpdateStatus>;
+  checkForUpdates(): Promise<DesktopUpdateStatus>;
+  installUpdate(): Promise<boolean>;
+  getAutoBackupSettings(): Promise<DesktopAutoBackupSettings>;
+  chooseAutoBackupDirectory(
+    passphrase: string,
+  ): Promise<DesktopAutoBackupSettings>;
+  disableAutoBackup(): Promise<DesktopAutoBackupSettings>;
+  writeAutoBackup(payload: ArrayBuffer): Promise<boolean>;
+}
+
+export interface DesktopUpdateStatus {
+  status:
+    | "disabled"
+    | "idle"
+    | "checking"
+    | "current"
+    | "downloading"
+    | "ready"
+    | "error";
+  currentVersion: string;
+  availableVersion: string;
+  progress: number;
+  message: string;
+}
+
+export interface DesktopAutoBackupSettings {
+  enabled: boolean;
+  directory: string;
+  retention: number;
+  lastBackupAt: number;
 }
 
 declare global {

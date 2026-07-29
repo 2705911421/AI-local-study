@@ -13,4 +13,12 @@ contextBridge.exposeInMainWorld("zhiyeDesktop", {
   listModels: (config) => invoke("intelligence:list-models", config),
   invoke: (request) => invoke("intelligence:invoke", request),
   cancel: (requestId) => invoke("intelligence:cancel", requestId),
+  getUpdateStatus: () => invoke("updates:get-status"),
+  checkForUpdates: () => invoke("updates:check"),
+  installUpdate: () => invoke("updates:install"),
+  getAutoBackupSettings: () => invoke("backup:get-settings"),
+  chooseAutoBackupDirectory: (passphrase) =>
+    invoke("backup:choose-directory", { passphrase }),
+  disableAutoBackup: () => invoke("backup:disable"),
+  writeAutoBackup: (payload) => invoke("backup:write", payload),
 });

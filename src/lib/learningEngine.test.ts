@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Chapter } from "../types";
-import { createQuiz, gradeAnswer, retrieve } from "./learningEngine";
+import {
+  createQuiz,
+  gradeAnswer,
+  retrieve,
+  scheduleReview,
+} from "./learningEngine";
 
 const chapter: Chapter = {
   id: "doc-a:c1",
@@ -46,6 +51,11 @@ describe("LearningEngine", () => {
     expect(quiz).toHaveLength(3);
     expect(new Set(quiz.map((item) => item.evidenceBlockId)).size).toBe(3);
     expect(quiz.every((item) => (item.keyPoints?.length || 0) > 0)).toBe(true);
+    expect(quiz.map((item) => item.kind)).toEqual([
+      "recall",
+      "distinguish",
+      "application",
+    ]);
   });
 
   it("离线评分保守地区分覆盖完整与依据不足", () => {
@@ -62,5 +72,19 @@ describe("LearningEngine", () => {
     expect(good.score).toBeGreaterThanOrEqual(0.65);
     expect(good.missingKeyPoints).toHaveLength(0);
     expect(weak.score).toBeLessThan(0.35);
+  });
+
+  it("四档自评会推进或重置复习间隔", () => {
+    const first = scheduleReview(undefined, "good", Date.UTC(2026, 6, 29));
+    const easy = scheduleReview(first, "easy", Date.UTC(2026, 6, 30));
+    const again = scheduleReview(easy, "again", Date.UTC(2026, 7, 1));
+
+    expect(first.intervalDays).toBe(1);
+    expect(easy.intervalDays).toBeGreaterThan(first.intervalDays);
+    expect(easy.repetitions).toBe(2);
+    expect(again.intervalDays).toBe(0);
+    expect(again.repetitions).toBe(0);
+    expect(again.lapses).toBe(1);
+    expect(again.dueAt).toBe(Date.UTC(2026, 7, 1) + 10 * 60 * 1000);
   });
 });

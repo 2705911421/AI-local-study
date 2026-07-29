@@ -35,18 +35,20 @@ import {
 import type {
   Chapter,
   ChatMessage,
+  DailyStudyMetric,
   Highlight,
   QuizAttempt,
   QuizItem,
   ReadingState,
   ReviewSchedule,
+  ReviewRating,
   Section,
   StudyDocument,
   StudyNote,
   TextBlock,
   UserPreferences,
 } from "./types";
-import { AppContext, useAppContext, type MobileStudyView, type Overlay, type RightTab } from "./AppContext";
+import { AppContext, useAppContext, type MobileStudyView, type Overlay, type RightTab, type SearchScope } from "./AppContext";
 import { PdfReader } from "./components/PdfReader";
 import {
   MobileStudyTabs,
@@ -55,15 +57,15 @@ import { StatusToast } from "./components/StatusToast";
 import { ImportDialog } from "./components/ImportDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { QuizDialog } from "./components/QuizDialog";
+import {
+  ReviewDialog,
+  type ReviewQueueItem,
+} from "./components/ReviewDialog";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { demoDocument } from "./lib/demo";
 import { IMPORT_LIMITS, rebuildPdfDocument } from "./lib/document";
 import { importPipeline, type ImportProgress } from "./lib/importPipeline";
-import {
-  createQuiz,
-  gradeAnswer,
-  retrieve,
-} from "./lib/learningEngine";
+import { createQuiz, scheduleReview } from "./lib/learningEngine";
 import {
   askModel,
   checkModel,
@@ -74,7 +76,6 @@ import {
   explainPageImage,
   getDesktopSettings,
   getProviderStatuses,
-  gradeAnswerWithModel,
   isDesktopApp,
   listModels,
   loginProvider,
@@ -183,6 +184,8 @@ function AppInner() {
     chatHydratingDocumentId,
     isThinking,
     setIsThinking,
+    searchScope,
+    setSearchScope,
     notes,
     setNotes,
     highlights,
@@ -191,6 +194,8 @@ function AppInner() {
     setQuizAttempts,
     reviewSchedules,
     setReviewSchedules,
+    dailyMetrics,
+    setDailyMetrics,
     readingStates,
     setReadingStates,
     preferences,
@@ -290,6 +295,8 @@ function AppInner() {
     setImportProgress,
     importWithOcr,
     setImportWithOcr,
+    importOcrLanguages,
+    setImportOcrLanguages,
     readerRef,
     chatEndRef,
     highlightTimerRef,
@@ -327,6 +334,7 @@ function AppInner() {
     enhanceSelectedBlocks,
     rebuildActiveDocumentSegments,
     explainCurrentPageImage,
+    cancelEnhancement,
   } = useEnhancement();
 
   // ── Derived values (with useMemo — P0-3 fixes) ──
@@ -427,13 +435,306 @@ function AppInner() {
     [quizAttempts, activeDocumentIdMemo],
   );
 
-  const dueReviewCount = useMemo(
-    () =>
-      reviewSchedules.filter(
-        (item) =>
-          item.documentId === activeDocumentIdMemo && item.dueAt <= Date.now(),
-      ).length,
-    [reviewSchedules, activeDocumentIdMemo],
+  const dueReviewItems = useMemo<ReviewQueueItem[]>(() => {
+    const now = Date.now();
+    return reviewSchedules
+      .filter((item) => item.dueAt <= now)
+      .flatMap((schedule) => {
+        const document = documents.find(
+          (candidate) =>
+            candidate.id === schedule.documentId && !candidate.deletedAt,
+        );
+        const chapter = document?.chapters.find(
+          (candidate) => candidate.id === schedule.chapterId,
+        );
+        const block = chapter?.blocks.find(
+          (candidate) => candidate.id === schedule.evidenceBlockId,
+        );
+        return document && chapter && block
+          ? [{ schedule, document, chapterTitle: chapter.title, block }]
+          : [];
+      })
+      .sort((a, b) => a.schedule.dueAt - b.schedule.dueAt);
+  }, [documents, reviewSchedules]);
+  const dueReviewCount = dueReviewItems.length;
+
+  const recordDailyMetric = useCallback(
+    (
+      updates: Partial<
+        Pick<
+          DailyStudyMetric,
+          | "activeSeconds"
+          | "pagesRead"
+          | "questionsAnswered"
+          | "correctAnswers"
+          | "reviewsCompleted"
+        >
+      >,
+    ) => {
+      if (activeDocument.kind === "demo") return;
+      const date = new Date().toLocaleDateString("en-CA");
+      const id = `${date}:${activeDocument.id}`;
+      const current = dailyMetrics.find((item) => item.id === id);
+      const next: DailyStudyMetric = {
+        id,
+        date,
+        documentId: activeDocument.id,
+        activeSeconds:
+          (current?.activeSeconds || 0) + (updates.activeSeconds || 0),
+        pagesRead: Math.max(current?.pagesRead || 0, updates.pagesRead || 0),
+        questionsAnswered:
+          (current?.questionsAnswered || 0) +
+          (updates.questionsAnswered || 0),
+        correctAnswers:
+          (current?.correctAnswers || 0) + (updates.correctAnswers || 0),
+        reviewsCompleted:
+          (current?.reviewsCompleted || 0) +
+          (updates.reviewsCompleted || 0),
+        updatedAt: Date.now(),
+      };
+      setDailyMetrics((items) => [
+        next,
+        ...items.filter((item) => item.id !== id),
+      ]);
+      persistInBackground(
+        { type: "saveDailyMetric", metric: next },
+        "学习统计暂未保存，将在下次活动时重试",
+      );
+    },
+    [
+      activeDocument.id,
+      activeDocument.kind,
+      dailyMetrics,
+      persistInBackground,
+      setDailyMetrics,
+    ],
+  );
+
+  const rateReview = useCallback(
+    async (item: ReviewQueueItem, rating: ReviewRating) => {
+      const workspace = await persistCommand(
+        {
+          type: "saveReviewSchedule",
+          reviewSchedule: {
+            ...item.schedule,
+            ...scheduleReview(item.schedule, rating),
+          },
+        },
+        "复习进度保存失败，请稍后重试",
+      );
+      if (workspace) {
+        setReviewSchedules(workspace.reviewSchedules);
+        recordDailyMetric({ reviewsCompleted: 1 });
+        setNotice("复习计划已更新");
+      }
+    },
+    [persistCommand, recordDailyMetric, setReviewSchedules, setNotice],
+  );
+
+  const dashboard = useMemo(() => {
+    const metrics = dailyMetrics.filter(
+      (item) => item.documentId === activeDocumentIdMemo,
+    );
+    const activeSeconds = metrics.reduce(
+      (total, item) => total + item.activeSeconds,
+      0,
+    );
+    const scores = documentQuizHistory.flatMap((attempt) =>
+      attempt.scores.filter((score): score is number => score !== null),
+    );
+    const correctCount = scores.filter((score) => score >= 0.65).length;
+    return {
+      activeMinutes: Math.round(activeSeconds / 60),
+      accuracy: scores.length
+        ? Math.round((correctCount / scores.length) * 100)
+        : 0,
+      weakCount: scores.filter((score) => score < 0.35).length,
+    };
+  }, [activeDocumentIdMemo, dailyMetrics, documentQuizHistory]);
+
+  const persistSegmentEdit = useCallback(
+    async (chapters: Chapter[], successMessage: string) => {
+      if (activeDocument.kind !== "pdf") return;
+      const updated: StudyDocument = {
+        ...activeDocument,
+        sourceChapters:
+          activeDocument.sourceChapters ||
+          structuredClone(activeDocument.chapters),
+        chapters,
+        updatedAt: Date.now(),
+      };
+      const workspace = await persistCommand(
+        { type: "saveDocument", document: updated },
+        "分段修改保存失败，请稍后重试",
+      );
+      if (!workspace) return;
+      setDocuments((items) =>
+        items.map((document) =>
+          document.id === updated.id ? updated : document,
+        ),
+      );
+      setSelectedBlockIds([]);
+      setNotice(successMessage);
+    },
+    [
+      activeDocument,
+      persistCommand,
+      setDocuments,
+      setNotice,
+      setSelectedBlockIds,
+    ],
+  );
+
+  const mergeSelectedSegments = useCallback(() => {
+    const selected = activeChapter.blocks.filter((block) =>
+      selectedBlockIds.includes(block.id),
+    );
+    if (selected.length < 2) {
+      setNotice("请至少选择两个连续段落");
+      return;
+    }
+    const selectedIndexes = selected.map((block) =>
+      activeChapter.blocks.indexOf(block),
+    );
+    const consecutive = selectedIndexes.every(
+      (value, index) => index === 0 || value === selectedIndexes[index - 1] + 1,
+    );
+    if (!consecutive) {
+      setNotice("只能合并连续段落");
+      return;
+    }
+    const owner = {
+      ...selected[0],
+      text: selected.map((block) => block.text).join("\n"),
+      smartText: undefined,
+      blockKind: selected.some((block) => block.blockKind === "table")
+        ? ("table" as const)
+        : selected[0].blockKind,
+    };
+    const removed = new Set(selected.slice(1).map((block) => block.id));
+    void persistSegmentEdit(
+      activeDocument.chapters.map((chapter) =>
+        chapter.id === activeChapter.id
+          ? {
+              ...chapter,
+              blocks: chapter.blocks
+                .map((block) => (block.id === owner.id ? owner : block))
+                .filter((block) => !removed.has(block.id)),
+            }
+          : chapter,
+      ),
+      "已合并所选段落",
+    );
+  }, [
+    activeChapter,
+    activeDocument.chapters,
+    persistSegmentEdit,
+    selectedBlockIds,
+    setNotice,
+  ]);
+
+  const splitSelectedSegment = useCallback(() => {
+    const block = activeChapter.blocks.find((candidate) =>
+      selectedBlockIds.includes(candidate.id),
+    );
+    if (!block || selectedBlockIds.length !== 1) {
+      setNotice("请选择一个段落进行拆分");
+      return;
+    }
+    const parts = block.text
+      .split(/(?<=[。！？；])/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length < 2) {
+      setNotice("该段落没有可用的句子边界");
+      return;
+    }
+    const middle = Math.ceil(parts.length / 2);
+    const replacements: TextBlock[] = [
+      { ...block, id: `${block.id}:a`, text: parts.slice(0, middle).join("") },
+      { ...block, id: `${block.id}:b`, text: parts.slice(middle).join("") },
+    ].map((item) => ({ ...item, smartText: undefined }));
+    void persistSegmentEdit(
+      activeDocument.chapters.map((chapter) =>
+        chapter.id === activeChapter.id
+          ? {
+              ...chapter,
+              blocks: chapter.blocks.flatMap((candidate) =>
+                candidate.id === block.id ? replacements : [candidate],
+              ),
+            }
+          : chapter,
+      ),
+      "已拆分所选段落",
+    );
+  }, [
+    activeChapter,
+    activeDocument.chapters,
+    persistSegmentEdit,
+    selectedBlockIds,
+    setNotice,
+  ]);
+
+  const toggleSelectedTable = useCallback(() => {
+    if (!selectedBlockIds.length) {
+      setNotice("请先选择需要标记的段落");
+      return;
+    }
+    void persistSegmentEdit(
+      activeDocument.chapters.map((chapter) =>
+        chapter.id === activeChapter.id
+          ? {
+              ...chapter,
+              blocks: chapter.blocks.map((block) =>
+                selectedBlockIds.includes(block.id)
+                  ? {
+                      ...block,
+                      blockKind:
+                        block.blockKind === "table" ? "paragraph" : "table",
+                    }
+                  : block,
+              ),
+            }
+          : chapter,
+      ),
+      "已更新表格标记",
+    );
+  }, [
+    activeChapter.id,
+    activeDocument.chapters,
+    persistSegmentEdit,
+    selectedBlockIds,
+    setNotice,
+  ]);
+
+  const restoreOriginalSegments = useCallback(() => {
+    if (!activeDocument.sourceChapters) {
+      setNotice("当前教材没有分段修改");
+      return;
+    }
+    void persistSegmentEdit(
+      structuredClone(activeDocument.sourceChapters),
+      "已恢复初始解析结果",
+    );
+  }, [activeDocument.sourceChapters, persistSegmentEdit, setNotice]);
+
+  const openReviewEvidence = useCallback(
+    (item: ReviewQueueItem) => {
+      selectDocument(item.document);
+      setActiveChapterId(item.schedule.chapterId);
+      setReaderMode("text");
+      setCurrentBlockId(item.block.id);
+      setHighlightedBlockId(item.block.id);
+      setOverlay(null);
+    },
+    [
+      selectDocument,
+      setActiveChapterId,
+      setReaderMode,
+      setCurrentBlockId,
+      setHighlightedBlockId,
+      setOverlay,
+    ],
   );
 
   const visiblePdfBlocks = useMemo(
@@ -459,6 +760,37 @@ function AppInner() {
     goToSearchResult,
   } = useReaderNav({ searchResults, chapterHighlights });
 
+  const openAnswerCitation = useCallback(
+    (citation: import("./types").Citation) => {
+      const targetDocument = citation.documentId
+        ? documents.find((document) => document.id === citation.documentId)
+        : activeDocument;
+      if (targetDocument && targetDocument.id !== activeDocument.id) {
+        selectDocument(targetDocument);
+        if (citation.chapterId) setActiveChapterId(citation.chapterId);
+        setReaderMode("text");
+        setCurrentBlockId(citation.blockId);
+        window.setTimeout(() => {
+          document.getElementById(citation.blockId)?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }, 80);
+        return;
+      }
+      openCitation(citation.blockId, citation.locator);
+    },
+    [
+      activeDocument,
+      documents,
+      openCitation,
+      selectDocument,
+      setActiveChapterId,
+      setCurrentBlockId,
+      setReaderMode,
+    ],
+  );
+
   // ── Effects ──
   useEffect(() => {
     let cancelled = false;
@@ -480,6 +812,7 @@ function AppInner() {
         setReadingStates(workspace.readingStates);
         setQuizAttempts(workspace.quizAttempts);
         setReviewSchedules(workspace.reviewSchedules);
+        setDailyMetrics(workspace.dailyMetrics);
         setPreferences(workspace.preferences);
         const lastState = [...workspace.readingStates].sort(
           (a, b) => b.updatedAt - a.updatedAt,
@@ -561,6 +894,33 @@ function AppInner() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!window.zhiyeDesktop) return;
+    let cancelled = false;
+    void window.zhiyeDesktop
+      .getAutoBackupSettings()
+      .then(async (settings) => {
+        if (cancelled || !settings.enabled) return;
+        const today = new Date().toLocaleDateString("en-CA");
+        const lastDate = settings.lastBackupAt
+          ? new Date(settings.lastBackupAt).toLocaleDateString("en-CA")
+          : "";
+        if (lastDate === today) return;
+        const payload = await repository.exportPortableBackup();
+        if (cancelled) return;
+        await window.zhiyeDesktop!.writeAutoBackup(
+          await payload.arrayBuffer(),
+        );
+        if (!cancelled) setNotice("今日自动备份已完成");
+      })
+      .catch(() => {
+        if (!cancelled) setNotice("自动备份暂未完成，可在设置中重试");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [repository, setNotice]);
 
   useEffect(() => {
     setModelOnline(null);
@@ -669,6 +1029,25 @@ function AppInner() {
     positionPercent,
     readerMode,
     rightTab,
+    visiblePdfPage,
+  ]);
+
+  useEffect(() => {
+    if (activeDocument.kind === "demo") return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      recordDailyMetric({
+        activeSeconds: 60,
+        pagesRead:
+          readerMode === "original" ? visiblePdfPage : currentTextPage,
+      });
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [
+    activeDocument.kind,
+    currentTextPage,
+    readerMode,
+    recordDailyMetric,
     visiblePdfPage,
   ]);
 
@@ -790,11 +1169,18 @@ function AppInner() {
   }, [repository, setNotice]);
 
   const restoreBackup = useCallback(
-    async (file: File, passphrase?: string) => {
+    async (
+      file: File,
+      passphrase?: string,
+      mode: "replace" | "merge" = "merge",
+    ) => {
       try {
-        const workspace = await repository.restoreBackup(file, { passphrase });
+        const workspace = await repository.restoreBackup(file, {
+          passphrase,
+          mode,
+        });
         applyWorkspace(workspace);
-        setNotice("备份已恢复");
+        setNotice(mode === "merge" ? "备份已合并恢复" : "备份已替换恢复");
         return true;
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "备份恢复失败");
@@ -1134,9 +1520,32 @@ function AppInner() {
                   待复习 {dueReviewCount}
                 </span>
               </div>
+              <div className="learning-dashboard" aria-label="本章学习数据">
+                <span>
+                  <strong>{dashboard.activeMinutes}</strong>
+                  学习分钟
+                </span>
+                <span>
+                  <strong>{dashboard.accuracy}%</strong>
+                  答题正确
+                </span>
+                <span>
+                  <strong>{dashboard.weakCount}</strong>
+                  薄弱题目
+                </span>
+              </div>
               <button onClick={openQuiz} aria-label="开始章节练习（底部）">
                 开始章节练习
                 <ArrowRight size={15} />
+              </button>
+              <button
+                className="review-start"
+                onClick={() => setOverlay("review")}
+                disabled={!dueReviewCount}
+                aria-label={`开始今日复习，共 ${dueReviewCount} 项`}
+              >
+                今日复习
+                <span>{dueReviewCount}</span>
               </button>
             </div>
           </aside>
@@ -1201,8 +1610,9 @@ function AppInner() {
                   <>
                     <button
                       className="enhance-chapter-button"
-                      onClick={enhanceCurrentChapter}
-                      disabled={isEnhancing}
+                      onClick={
+                        isEnhancing ? cancelEnhancement : enhanceCurrentChapter
+                      }
                       title={
                         modelOnline
                           ? "使用已连接模型整理当前章节"
@@ -1211,7 +1621,7 @@ function AppInner() {
                     >
                       <Sparkle size={15} />
                       {isEnhancing
-                        ? enhanceProgress || "正在生成…"
+                        ? "暂停任务"
                         : "AI 优化本章"}
                     </button>
                     <button
@@ -1245,6 +1655,18 @@ function AppInner() {
                     >
                       <HighlighterCircle size={18} />
                     </button>
+                    {activeDocument.kind === "pdf" && (
+                      <button
+                        className={selectionMode ? "active" : ""}
+                        onClick={() => {
+                          setSelectionMode(!selectionMode);
+                          setSelectedBlockIds([]);
+                        }}
+                        aria-pressed={selectionMode}
+                      >
+                        编辑分段
+                      </button>
+                    )}
                     <span>{activeChapter.blocks.length} 个内容片段</span>
                   </>
                 )}
@@ -1304,6 +1726,15 @@ function AppInner() {
                 >
                   <X size={15} />
                 </button>
+              </div>
+            )}
+            {selectionMode && readerMode === "text" && (
+              <div className="segment-editor" role="toolbar" aria-label="分段编辑">
+                <span>已选 {selectedBlockIds.length} 段</span>
+                <button onClick={mergeSelectedSegments}>合并</button>
+                <button onClick={splitSelectedSegment}>拆分</button>
+                <button onClick={toggleSelectedTable}>标记表格</button>
+                <button onClick={restoreOriginalSegments}>恢复初始分段</button>
               </div>
             )}
 
@@ -1375,12 +1806,28 @@ function AppInner() {
                         searchResults[searchIndex]?.id === block.id
                           ? "search-current"
                           : ""
-                      } ${highlighterMode ? "is-highlight-selectable" : ""}`}
+                      } ${highlighterMode ? "is-highlight-selectable" : ""} ${
+                        selectionMode ? "is-segment-selectable" : ""
+                      } ${
+                        selectedBlockIds.includes(block.id)
+                          ? "is-segment-selected"
+                          : ""
+                      } ${
+                        block.blockKind === "table" ? "is-table-block" : ""
+                      }`}
                       key={block.id}
                       id={block.id}
                       data-page={block.page}
                       onClick={() => {
                         setCurrentBlockId(block.id);
+                        if (selectionMode) {
+                          setSelectedBlockIds((current) =>
+                            current.includes(block.id)
+                              ? current.filter((id) => id !== block.id)
+                              : [...current, block.id],
+                          );
+                          return;
+                        }
                         if (highlighterMode) toggleHighlight(block);
                       }}
                     >
@@ -1534,12 +1981,7 @@ function AppInner() {
                               <button
                                 className="citation"
                                 key={citation.blockId}
-                                onClick={() =>
-                                  openCitation(
-                                    citation.blockId,
-                                    citation.locator,
-                                  )
-                                }
+                                onClick={() => openAnswerCitation(citation)}
                               >
                                 <Quotes size={12} weight="fill" />
                                 {citation.locator}
@@ -1599,6 +2041,45 @@ function AppInner() {
                           </button>
                         </footer>
                       )}
+                      {message.role === "assistant" &&
+                        message.feedback === "unhelpful" && (
+                          <div className="feedback-followup">
+                            <label>
+                              <span>主要问题</span>
+                              <select
+                                value={message.feedbackReason || ""}
+                                onChange={(event) =>
+                                  setMessageFeedback(
+                                    message.id,
+                                    "unhelpful",
+                                    event.target.value as
+                                      | "irrelevant"
+                                      | "unsupported"
+                                      | "unclear"
+                                      | "incomplete",
+                                  )
+                                }
+                              >
+                                <option value="">请选择</option>
+                                <option value="irrelevant">检索内容不相关</option>
+                                <option value="unsupported">缺少教材依据</option>
+                                <option value="unclear">表达不清楚</option>
+                                <option value="incomplete">回答不完整</option>
+                              </select>
+                            </label>
+                            {message.question && (
+                              <button
+                                onClick={() =>
+                                  submitQuestion(
+                                    `${message.question}（请扩大检索范围，重新核对教材依据后回答）`,
+                                  )
+                                }
+                              >
+                                重新检索并回答
+                              </button>
+                            )}
+                          </div>
+                        )}
                     </article>
                   ))}
                   {isThinking && (
@@ -1612,6 +2093,19 @@ function AppInner() {
                   )}
                   <div ref={chatEndRef} />
                 </div>
+                <label className="search-scope">
+                  <span>检索范围</span>
+                  <select
+                    value={searchScope}
+                    onChange={(event) =>
+                      setSearchScope(event.target.value as SearchScope)
+                    }
+                  >
+                    <option value="chapter">当前章节</option>
+                    <option value="document">整本教材</option>
+                    <option value="library">全部教材</option>
+                  </select>
+                </label>
                 <form
                   className="chat-input"
                   onSubmit={(event) => {
@@ -1799,6 +2293,11 @@ function AppInner() {
           onNext={nextQuiz}
           onSetMastery={setCurrentMastery}
         />
+        <ReviewDialog
+          items={dueReviewItems}
+          onRate={rateReview}
+          onOpenEvidence={openReviewEvidence}
+        />
         <ConfirmDialog type="note" onConfirm={deleteNote} />
         <ConfirmDialog type="document" onConfirm={trashDocument} />
       </div>
@@ -1837,6 +2336,7 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
   const [reviewSchedules, setReviewSchedules] = useState<ReviewSchedule[]>([]);
+  const [dailyMetrics, setDailyMetrics] = useState<DailyStudyMetric[]>([]);
   const [readingStates, setReadingStates] = useState<ReadingState[]>([]);
   const [preferences, setPreferences] = useState<UserPreferences>({
     theme: "auto",
@@ -1848,6 +2348,7 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
   const [noteQuote, setNoteQuote] = useState("");
   const [noteError, setNoteError] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [searchScope, setSearchScope] = useState<SearchScope>("document");
   const [importState, setImportState] = useState<
     "idle" | "parsing" | "done" | "error"
   >("idle");
@@ -1881,6 +2382,7 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
   >([]);
   const [quizScores, setQuizScores] = useState<Array<number | null>>([]);
   const [quizAttemptId, setQuizAttemptId] = useState<string | null>(null);
+  const [quizItemsOverride, setQuizItemsOverride] = useState<QuizItem[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [chapterSearch, setChapterSearch] = useState("");
   const [searchIndex, setSearchIndex] = useState(0);
@@ -1906,6 +2408,10 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
     null,
   );
   const [importWithOcr, setImportWithOcr] = useState(false);
+  const [importOcrLanguages, setImportOcrLanguages] = useState<string[]>([
+    "chi_sim",
+    "eng",
+  ]);
 
   // ── Refs ──
   const readerRef = useRef<HTMLElement>(null);
@@ -1967,6 +2473,8 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       setChatHydratingDocumentId,
       isThinking,
       setIsThinking,
+      searchScope,
+      setSearchScope,
       notes,
       setNotes,
       highlights,
@@ -1975,6 +2483,8 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       setQuizAttempts,
       reviewSchedules,
       setReviewSchedules,
+      dailyMetrics,
+      setDailyMetrics,
       readingStates,
       setReadingStates,
       preferences,
@@ -2041,7 +2551,12 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       setQuizMastery,
       quizAttemptId,
       setQuizAttemptId,
-      quiz: makeQuiz(activeChapter),
+      quiz:
+        quizItemsOverride.length > 0
+          ? quizItemsOverride
+          : makeQuiz(activeChapter),
+      quizItemsOverride,
+      setQuizItemsOverride,
       searchOpen,
       setSearchOpen,
       chapterSearch,
@@ -2072,6 +2587,8 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       setImportProgress,
       importWithOcr,
       setImportWithOcr,
+      importOcrLanguages,
+      setImportOcrLanguages,
       readerRef,
       chatEndRef,
       highlightTimerRef,
@@ -2099,10 +2616,12 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       messages,
       chatHydratingDocumentId,
       isThinking,
+      searchScope,
       notes,
       highlights,
       quizAttempts,
       reviewSchedules,
+      dailyMetrics,
       readingStates,
       preferences,
       noteDraft,
@@ -2136,6 +2655,7 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       quizScores,
       quizMastery,
       quizAttemptId,
+      quizItemsOverride,
       searchOpen,
       chapterSearch,
       searchIndex,
@@ -2151,6 +2671,7 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       importError,
       importProgress,
       importWithOcr,
+      importOcrLanguages,
       reportPersistenceFailure,
     ],
   );

@@ -31,5 +31,28 @@ describe("desktop intelligence task contract", () => {
       parseStructured('```json\n{"text":"  教材回答  "}\n```', "request-2"),
     ).toEqual({ requestId: "request-2", text: "教材回答" });
   });
-});
 
+  it("accepts evidence-bound generated quiz items", () => {
+    const result = parseStructured(
+      JSON.stringify({
+        quiz: [
+          {
+            id: "q1",
+            kind: "recall",
+            prompt: "什么是命题？",
+            answer: "能够判断真假的陈述句。",
+            rationale: "答案来自定义段落。",
+            locator: "第 1 页",
+            evidenceBlockId: "b1",
+            keyPoints: ["判断真假", "陈述句"],
+            options: [],
+          },
+        ],
+      }),
+      "request-quiz",
+    );
+
+    expect(result.quiz).toHaveLength(1);
+    expect(result.quiz[0].evidenceBlockId).toBe("b1");
+  });
+});

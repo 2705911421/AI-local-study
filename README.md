@@ -1,45 +1,83 @@
 # 知页
 
-面向大学生的本地教材伴学 MVP。导入 PDF 或 EPUB 后，问答、引用、练习与笔记均限定在当前教材范围内。
+![知页 Logo](brand/logo-mark.svg)
 
-## 本地启动
+知页是一款面向 Windows 的本地教材伴学工具。用户导入 PDF 或 EPUB 后，可以在教材范围内阅读、检索、提问、练习和记录笔记；回答与智能文本都保留原文引用，便于随时回到教材核对。
 
-要求 Node.js 20 或更高版本。
+项目同时提供 Web 版和 Electron 桌面版。Web 版支持本机 Ollama 与 OpenAI Chat Completions 兼容服务；桌面版在此基础上增加 Codex、Claude 智能来源及 Windows 本地凭据保护。
+
+## 主要功能
+
+- 在浏览器本地解析 PDF、EPUB，教材与学习记录保存在 IndexedDB
+- PDF 原版 Canvas 阅读，支持页码、按钮、滚轮和方向键翻页
+- 章节识别、语义分段、正文检索及原文定位
+- 原版页面与智能文本双向跳转、对应范围高亮
+- 扫描版 PDF 可按需启用 Tesseract 本地 OCR
+- 基于当前教材内容提问，并通过引用跳回原文
+- 依据不足时给出保守结果，不自动引入外部资料
+- 章节练习、教材参考反馈、掌握度和复习记录
+- 分章节笔记、笔记检索及 Markdown 导出
+- 教材、解析正文和学习记录的加密完整备份
+- 桌面与移动端自适应界面
+
+## 技术栈
+
+- React 19、TypeScript、Vite
+- Electron、electron-builder、NSIS
+- PDF.js、JSZip、Tesseract.js
+- Vitest、Testing Library、Playwright、axe-core
+- Cloudflare Workers / Static Assets
+
+## 快速开始
+
+### 环境要求
+
+- Node.js 20 或更高版本
+- npm
+- Windows x64（桌面端开发和打包）
+
+安装依赖并启动 Web 开发服务器：
 
 ```powershell
 npm install
 npm run dev
 ```
 
-浏览器打开 `http://127.0.0.1:4173`。
+访问以下地址：
 
-生产构建：
+- `http://127.0.0.1:4173/`：产品介绍页
+- `http://127.0.0.1:4173/app`：学习工作区
 
-```powershell
-npm run build
-npm run preview
-```
-
-网页版正式部署时，必须由 Web 服务器通过 HTTP 响应头设置
-`Content-Security-Policy: frame-ancestors 'none'`，防止页面被其他站点嵌入。
-浏览器会忽略 HTML `<meta>` 中的 `frame-ancestors`，因此该指令不能只写在页面内。
-
-## Windows 桌面版
-
-桌面版使用 Electron 封装同一套阅读界面，并内置 Codex 与 Claude Agent
-Windows x64 运行时。第一阶段仅发布 Windows x64 版本。普通用户不需要安装或操作
-命令行工具，首次启动会自动打开智能来源向导。Codex 与 Claude 组件以压缩形式随安装包
-提供，第一次连接对应来源时按需展开。
-
-开发与打包：
+启动 Electron 桌面开发环境：
 
 ```powershell
 npm run desktop:dev
-npm run test:desktop:e2e
-npm run desktop:build
 ```
 
-正式发布构建必须配置 Windows Authenticode 证书：
+## 构建与预览
+
+构建 Web 版：
+
+```powershell
+npm run build
+```
+
+产物位于 `dist/client`，站点 Worker 位于 `dist/server`。本地预览静态客户端或完整 Worker：
+
+```powershell
+npm run preview
+npm run preview:worker
+```
+
+构建仅用于本机验收的未签名 Windows 安装包：
+
+```powershell
+npm run desktop:build:unsigned
+```
+
+安装包、Blockmap 和 SHA-256 校验文件输出至 `artifacts/`。未签名安装包不可作为正式版本对外发布。
+
+正式发布必须配置 Windows Authenticode 证书：
 
 ```powershell
 $env:WIN_CSC_LINK = "C:\secure\zhiye-signing.pfx"
@@ -47,66 +85,108 @@ $env:WIN_CSC_KEY_PASSWORD = "<证书密码>"
 npm run desktop:build
 ```
 
-`desktop:build` 在缺少证书或签名验证失败时会中止，避免误发“未知发布者”安装包。
-仅本机验收可使用 `npm run desktop:build:unsigned`。该命令生成的安装包不可对外发布。
-构建同时生成 `.sha256` 校验文件。
+缺少证书或签名验证失败时，正式构建会直接终止。
 
-桌面设置支持四种智能来源：
+## 智能来源
 
-- Codex：在知页内通过官方设备登录，凭据保存在应用专属 `CODEX_HOME`。
-- Claude：通过官方订阅令牌流程连接；不可用时可填写专用 Claude API Key。
-- 本机 Ollama。
-- OpenAI Chat Completions 兼容服务。
+| 来源 | Web 版 | 桌面版 | 配置方式 |
+| --- | :---: | :---: | --- |
+| 本机 Ollama | ✓ | ✓ | 服务地址与模型名称 |
+| OpenAI 兼容服务 | ✓ | ✓ | Chat Completions 基础地址、模型 ID、API Key |
+| Codex | — | ✓ | 应用内官方设备登录 |
+| Claude | — | ✓ | 官方订阅令牌流程或专用 API Key |
 
-Codex 与 Claude 请求在应用专属空目录运行。Codex 使用只读沙箱、关闭网络和批准；
-Claude 禁用全部工具、限制为单轮且不保存会话。API Key 和 Claude 令牌使用 Windows
-安全凭据存储加密，凭据不会写入智能来源日志或学习备份。完整学习备份包含教材原文件、解析正文和学习记录，因此新导出的备份必须设置至少 12 个字符的密码，并使用 AES-256-GCM 加密；密码遗失后无法恢复。为限制浏览器进程的内存峰值，单份完整备份的未压缩内容上限为 256 MB。旧版未加密备份仍可导入，但恢复前会明确警告其包含教材正文。
+在右上角“设置”中选择来源、获取模型列表并测试连接。未连接模型时，应用仍可使用本地教材检索和基础学习功能。
 
-## 已实现
+使用外部智能来源时，完成当前任务所需的教材原文会发送给所选服务商；图示讲解还会发送当前 PDF 页面。来源调用失败后不会静默切换到另一家服务商。
 
-- PDF、EPUB 浏览器本地解析
-- 扫描版 PDF 可选择使用本地 Tesseract OCR；首次使用会下载并缓存中英文识别模型，教材页面在本机完成识别
-- 无浏览器插件侧栏与黑边的 PDF Canvas 原版阅读器
-- 原文段落与智能文本双向快捷跳转及短时对应高亮
-- PDF 按钮、页码、页边缘滚轮与键盘方向键翻页
-- 章、节两级目录识别与正文分块
-- 基于 PDF 行坐标、标题层级、缩进和行距的语义分段
-- 旧教材可一键“重建智能分段”
-- 教材数据保存到 IndexedDB
-- 当前章节优先的原文检索
-- 回答引用与原文位置跳转
-- 依据不足时拒绝回答
-- 章节练习及教材参考反馈
-- 分章节本地笔记
-- 可选的 Ollama 或 OpenAI 兼容 LLM 服务
-- 从 Ollama 或兼容服务自动获取可用模型列表
-- 原文跨页多段选择与定向 AI 智能文本整理
-- 原版页面标记已有智能文本的对应范围
-- 桌面三栏阅读界面与移动端适配
-- Windows Electron 桌面外壳与首次智能来源向导
-- 内置 Codex、Claude Agent、Ollama 与 OpenAI 兼容来源
-- 智能来源单并发、取消、超时和本地保守回退
+Web 版仅在当前页面会话的内存中保存 API Key，刷新后需要重新填写。桌面版的 API Key 和 Claude 令牌由 Electron 主进程通过 Windows 安全凭据存储加密，且不会写入智能来源日志或学习备份。
 
-## 可选的 LLM 服务
+## 数据与备份
 
-网页版右上角“设置”支持两种连接方式：
+- 教材、解析结果、笔记、练习和阅读状态默认保存在当前设备
+- 新导出的 `.zhiye-backup` 使用 AES-256-GCM 加密
+- 备份密码至少 12 个字符；密码遗失后无法恢复
+- 单份备份的未加密内容上限为 256 MB
+- 可以导入旧版未加密备份，但恢复前会明确提示风险
+- 完整备份包含教材原文件和解析正文，请妥善保管
 
-- 本机 Ollama：填写服务地址和模型名称。
-- OpenAI 兼容服务：填写 Chat Completions API 基础地址、模型 ID 和 API Key。
+## 导入限制
 
-可点击“获取模型列表”从上游选择模型，也可以继续手动填写模型 ID。连接后，可在 PDF 原版模式点击“选择内容生成”，跨页选择需要整理的原文，再只为所选段落生成智能文本。模型只负责清理版面噪声、修复断词和整理表达，原始 PDF 文本仍保留用于引用及双向定位。已有智能文本的原文会显示绿色标记。未连接模型时自动使用原文检索模式。
+| 类型 | 文件上限 | 其他限制 |
+| --- | ---: | --- |
+| PDF | 150 MB | 最多 2,000 页 |
+| EPUB | 50 MB | 解压后最多 300 MB，章节清单最多 2,000 项 |
 
-服务地址和模型名称保存在当前浏览器的本地存储中；API Key 只保留在当前页面会话的内存中，刷新后需要重新填写。使用外部服务时，当前章节原文会发送给所配置的服务商，且该服务必须允许浏览器跨域请求。
+扫描版 PDF 的 OCR 默认关闭。首次启用时需要联网下载并缓存中英文识别模型，后续识别在本机完成；速度和准确率取决于页面质量与设备性能。
 
-桌面版中，地址、模型与来源选择保存在应用设置中，密钥只在 Electron main
-进程中解密。来源失败时不会静默把教材内容发送给另一家提供商；界面先使用本地教材原文给出保守结果，再由用户决定是否切换来源。
+## 测试与质量检查
+
+```powershell
+# 单元与组件测试
+npm test
+
+# Web 端到端测试（桌面和移动视口）
+npm run test:e2e
+
+# Electron 主进程测试
+npm run test:desktop
+
+# Electron 桌面端到端测试
+npm run test:desktop:e2e
+
+# 生产依赖安全审计
+npm run audit:runtime
+```
+
+## 项目结构
+
+```text
+.
+├─ src/                    React 应用、组件、业务逻辑与数据层
+│  ├─ components/         导入、阅读、练习、设置等界面组件
+│  ├─ hooks/              应用交互与业务流程
+│  └─ lib/                文档解析、检索、学习引擎、存储和备份
+├─ electron/              Electron 主进程、预加载脚本和智能来源运行时
+├─ tests/                 Web 与桌面端 Playwright 测试
+├─ scripts/               Web/桌面构建、品牌资源和运行时准备脚本
+├─ sites/                 Cloudflare Worker 入口
+├─ public/                字体、PDF CMap 与公开静态资源
+├─ brand/                 品牌源文件
+└─ docs/                  补充技术文档
+```
+
+## 常用命令
+
+| 命令 | 说明 |
+| --- | --- |
+| `npm run dev` | 启动 Vite 开发服务器 |
+| `npm run desktop:dev` | 启动 Web 开发服务器和 Electron |
+| `npm run build` | 构建 Web 版及站点 Worker |
+| `npm run build:desktop-client` | 仅构建 Electron 渲染端 |
+| `npm run desktop:build:unsigned` | 生成本地验收用未签名安装包 |
+| `npm run desktop:build` | 生成并验证正式签名安装包 |
+| `npm run brand:generate` | 重新生成桌面品牌资源 |
 
 ## 当前限制
 
-- 扫描版 PDF 的 OCR 默认关闭；启用后首次使用需要联网下载中英文识别模型，后续可使用浏览器缓存。识别速度和准确率取决于页面质量与本机性能。
-- PDF 目录与语义分段采用版面规则，复杂多栏、表格或非标准标题仍可能需要手动校正。
-- EPUB 使用章节与段落定位，没有固定页码。
-- 当前检索为轻量关键词检索，后续可增加本地嵌入模型和混合检索。
-- 全教材批量生成尚未加入 Token 预算、费用预估与中断续传，建议当前使用选择生成。
-- 第一阶段仅面向 Windows x64，不提供 macOS、Linux 安装包或多用户服务器部署。
-- 自动更新暂未接入，当前版本通过完整 NSIS 安装包升级。
+- 第一阶段只发布 Windows x64 桌面版
+- 暂未接入自动更新，升级需要重新运行完整 NSIS 安装包
+- EPUB 使用章节和段落定位，没有固定页码
+- PDF 目录和语义分段依赖版面规则，复杂多栏、表格或非标准标题可能需要重建分段
+- 当前检索为轻量关键词检索，尚未加入本地向量模型和混合检索
+- 全教材批量智能生成尚无 Token 预算、费用预估和断点续传，建议使用选择生成
+
+## 安全说明
+
+Web 正式部署必须通过 HTTP 响应头设置：
+
+```text
+Content-Security-Policy: frame-ancestors 'none'
+```
+
+浏览器会忽略 HTML `<meta>` 中的 `frame-ancestors`，因此该策略必须由服务器返回。构建工具链的安全边界和审计约定见 [`docs/security-toolchain.md`](docs/security-toolchain.md)。
+
+## 许可证
+
+当前仓库未声明开源许可证，默认保留全部权利。

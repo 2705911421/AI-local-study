@@ -16,6 +16,7 @@ export interface TextBlock {
   sourceItemStart?: number;
   sourceItemEnd?: number;
   locator: string;
+  blockKind?: "paragraph" | "table";
 }
 
 export interface Section {
@@ -46,10 +47,13 @@ export interface StudyDocument {
   contentHash?: string;
   deletedAt?: number;
   chapters: Chapter[];
+  sourceChapters?: Chapter[];
 }
 
 export interface Citation {
   blockId: string;
+  documentId?: string;
+  chapterId?: string;
   locator: string;
   excerpt: string;
   score: number;
@@ -62,6 +66,8 @@ export interface ChatMessage {
   citations?: Citation[];
   status?: "direct" | "inferred" | "insufficient";
   feedback?: "helpful" | "unhelpful";
+  feedbackReason?: "irrelevant" | "unsupported" | "unclear" | "incomplete";
+  question?: string;
 }
 
 export interface StudyNote {
@@ -78,10 +84,14 @@ export interface StudyNote {
 
 export interface QuizItem {
   id: string;
+  kind?: "recall" | "distinguish" | "choice" | "application";
   prompt: string;
   answer: string;
+  rationale?: string;
+  options?: string[];
   locator: string;
   evidenceBlockId?: string;
+  evidenceBlockIds?: string[];
   keyPoints?: string[];
 }
 
@@ -130,9 +140,44 @@ export interface ReviewSchedule {
   documentId: string;
   chapterId: string;
   evidenceBlockId: string;
-  intervalIndex: number;
+  /** Legacy fixed-interval position, retained only while migrating v1 data. */
+  intervalIndex?: number;
+  intervalDays: number;
+  easeFactor: number;
+  repetitions: number;
+  lapses: number;
+  lastRating?: ReviewRating;
+  lastReviewedAt?: number;
   dueAt: number;
   updatedAt: number;
+}
+
+export type ReviewRating = "again" | "hard" | "good" | "easy";
+
+export interface DailyStudyMetric {
+  id: string;
+  date: string;
+  documentId: string;
+  activeSeconds: number;
+  pagesRead: number;
+  questionsAnswered: number;
+  correctAnswers: number;
+  reviewsCompleted: number;
+  updatedAt: number;
+}
+
+export interface EnhancementJob {
+  id: string;
+  documentId: string;
+  chapterId: string;
+  blockIds: string[];
+  completedBlockIds: string[];
+  failedBlockIds: string[];
+  status: "pending" | "running" | "paused" | "completed" | "failed";
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
+  updatedAt: number;
+  error?: string;
 }
 
 export interface UserPreferences {
@@ -140,12 +185,20 @@ export interface UserPreferences {
   fontScale: "small" | "medium" | "large";
   lineHeight: "compact" | "comfortable" | "relaxed";
   readingWidth: "narrow" | "medium" | "wide";
+  semanticSearchEnabled?: boolean;
 }
 
 export interface ImportCheckpoint {
   id: string;
   filename: string;
+  fileSize?: number;
+  lastModified?: number;
+  contentHash?: string;
   stage: "validation" | "reading" | "structure" | "ocr" | "index" | "save";
   completedPages: number[];
+  errorPages?: number[];
+  totalPages?: number;
+  pageTexts?: Record<string, string>;
+  ocrLanguages?: string[];
   updatedAt: number;
 }

@@ -72,6 +72,14 @@ const reveal = {
 export default function LandingPage() {
   const reduceMotion = useReducedMotion();
   const [isLeaving, setIsLeaving] = useState(false);
+  const [release, setRelease] = useState<{
+    available: boolean;
+    version: string;
+    downloadUrl: string;
+    size: number;
+    sha256: string;
+    releaseDate: string;
+  } | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const pointerX = useMotionValue(0);
   const pointerY = useMotionValue(0);
@@ -93,6 +101,24 @@ export default function LandingPage() {
     }, reduceMotion ? 20 : 720);
     return () => window.clearTimeout(timer);
   }, [isLeaving, reduceMotion]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`${import.meta.env.BASE_URL}release/latest.json`)
+      .then((response) => {
+        if (!response.ok) throw new Error("release manifest unavailable");
+        return response.json();
+      })
+      .then((manifest) => {
+        if (!cancelled) setRelease(manifest);
+      })
+      .catch(() => {
+        if (!cancelled) setRelease(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (reduceMotion || event.pointerType === "touch") return;
@@ -373,12 +399,25 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="download-actions">
-            <button type="button" disabled aria-describedby="release-status">
-              <DownloadSimple weight="bold" aria-hidden="true" />
-              等待签名版本
-            </button>
+            {release?.available && release.downloadUrl ? (
+              <a
+                className="download-button"
+                href={release.downloadUrl}
+                aria-describedby="release-status"
+              >
+                <DownloadSimple weight="bold" aria-hidden="true" />
+                下载 Windows {release.version}
+              </a>
+            ) : (
+              <button type="button" disabled aria-describedby="release-status">
+                <DownloadSimple weight="bold" aria-hidden="true" />
+                等待签名版本
+              </button>
+            )}
             <span id="release-status">
-              正式包将经过 Authenticode 签名验证
+              {release?.available
+                ? `${(release.size / 1024 / 1024).toFixed(1)} MB · SHA-256 ${release.sha256.slice(0, 12)}…`
+                : "正式包将经过 Authenticode 签名验证"}
             </span>
           </div>
           <PaperPlaneTilt

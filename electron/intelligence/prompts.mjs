@@ -22,6 +22,46 @@ const gradeSchema = {
   additionalProperties: false,
 };
 
+const quizSchema = {
+  type: "object",
+  properties: {
+    quiz: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          kind: {
+            type: "string",
+            enum: ["recall", "distinguish", "choice", "application"],
+          },
+          prompt: { type: "string" },
+          answer: { type: "string" },
+          rationale: { type: "string" },
+          locator: { type: "string" },
+          evidenceBlockId: { type: "string" },
+          keyPoints: { type: "array", items: { type: "string" } },
+          options: { type: "array", items: { type: "string" } },
+        },
+        required: [
+          "id",
+          "kind",
+          "prompt",
+          "answer",
+          "rationale",
+          "locator",
+          "evidenceBlockId",
+          "keyPoints",
+          "options",
+        ],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["quiz"],
+  additionalProperties: false,
+};
+
 function blocksSchema(ids) {
   return {
     type: "object",
@@ -98,6 +138,15 @@ export function buildTask(request, imagePath) {
           JSON.stringify(request.payload),
         schema: gradeSchema,
       };
+    case "generate-quiz":
+      return {
+        prompt:
+          `${common}\n你是教材练习设计器。只根据给出的章节原文生成 ${request.payload.count} 道题。` +
+          `题型在 recall、distinguish、choice、application 中分布；每题必须引用一个真实 block id 和 locator，` +
+          `给出简洁参考答案、解析和关键点，不得加入教材外事实。\n\n` +
+          JSON.stringify(request.payload),
+        schema: quizSchema,
+      };
     case "explain-image":
       return {
         prompt:
@@ -132,6 +181,24 @@ export function parseStructured(value, requestId) {
           item.text.trim().length > 8,
       ),
     };
+  }
+  if ("quiz" in parsed) {
+    if (!Array.isArray(parsed.quiz)) throw new Error("练习题格式不正确");
+    const quiz = parsed.quiz.filter(
+      (item) =>
+        item &&
+        typeof item.id === "string" &&
+        ["recall", "distinguish", "choice", "application"].includes(item.kind) &&
+        typeof item.prompt === "string" &&
+        typeof item.answer === "string" &&
+        typeof item.rationale === "string" &&
+        typeof item.locator === "string" &&
+        typeof item.evidenceBlockId === "string" &&
+        Array.isArray(item.keyPoints) &&
+        Array.isArray(item.options),
+    );
+    if (!quiz.length) throw new Error("智能来源没有返回有效练习题");
+    return { requestId, quiz };
   }
   if ("score" in parsed) {
     const score = Number(parsed.score);
@@ -169,4 +236,3 @@ function parseJsonObject(content) {
   if (start < 0 || end <= start) throw new Error("智能来源没有返回 JSON");
   return JSON.parse(fenced.slice(start, end + 1));
 }
-

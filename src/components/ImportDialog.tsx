@@ -120,6 +120,22 @@ export function ImportDialog({
                 </small>
               </span>
             </label>
+            {importWithOcr && (
+              <label className="ocr-language">
+                识别语言
+                <select
+                  value={ctx.importOcrLanguages.join("+")}
+                  disabled={importState === "parsing"}
+                  onChange={(event) =>
+                    ctx.setImportOcrLanguages(event.target.value.split("+"))
+                  }
+                >
+                  <option value="chi_sim+eng">简体中文 + 英文</option>
+                  <option value="chi_sim">简体中文</option>
+                  <option value="eng">英文</option>
+                </select>
+              </label>
+            )}
             <div className="privacy-row">
               <ShieldCheck size={18} weight="fill" />
               <span>本地解析 · 本地索引 · 本地保存</span>

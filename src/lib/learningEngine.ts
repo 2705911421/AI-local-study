@@ -1,4 +1,12 @@
-import type { Chapter, Citation, QuizItem, TextBlock } from "../types";
+import type {
+  Chapter,
+  Citation,
+  QuizItem,
+  ReviewRating,
+  ReviewSchedule,
+  StudyDocument,
+  TextBlock,
+} from "../types";
 
 const STOP_WORDS = new Set([
   "什么",
@@ -38,22 +46,52 @@ function terms(value: string): string[] {
   return [...new Set(segmented)];
 }
 
-function scoreBlock(query: string, block: TextBlock, chapterTitle: string): number {
-  const queryTerms = terms(query);
-  if (!queryTerms.length) return 0;
-  const text = normalize(`${chapterTitle}${block.smartText || block.text}`);
-  const matches = queryTerms.filter((term) => text.includes(term));
-  if (!matches.length) return 0;
+interface RetrievalCandidate {
+  documentId?: string;
+  chapter: Chapter;
+  block: TextBlock;
+  text: string;
+  titleText: string;
+}
 
-  let score = matches.reduce((total, term) => total + Math.min(1, term.length / 3), 0);
-  score /= queryTerms.length;
-  if (/什么是|定义|含义|指什么/.test(query) && /是|指|定义|称为/.test(block.text)) {
-    score += 0.34;
-  }
-  if (normalize(block.text).includes(normalize(query).replace(/什么是|是什么|吗/g, ""))) {
-    score += 0.22;
-  }
-  return Math.min(1, score);
+function bm25Scores(query: string, candidates: RetrievalCandidate[]): number[] {
+  const queryTerms = terms(query);
+  if (!queryTerms.length || !candidates.length) return candidates.map(() => 0);
+  const averageLength =
+    candidates.reduce((total, candidate) => total + terms(candidate.text).length, 0) /
+    candidates.length;
+  const k1 = 1.35;
+  const b = 0.72;
+
+  return candidates.map((candidate) => {
+    const bodyTerms = terms(candidate.text);
+    const titleTerms = terms(candidate.titleText);
+    let score = 0;
+    for (const term of queryTerms) {
+      const documentFrequency = candidates.filter(
+        (item) =>
+          normalize(item.text).includes(term) ||
+          normalize(item.titleText).includes(term),
+      ).length;
+      const inverseFrequency = Math.log(
+        1 + (candidates.length - documentFrequency + 0.5) / (documentFrequency + 0.5),
+      );
+      const bodyFrequency = bodyTerms.filter((item) => item === term).length;
+      const titleFrequency = titleTerms.filter((item) => item === term).length;
+      const weightedFrequency = bodyFrequency + titleFrequency * 2.4;
+      if (!weightedFrequency) continue;
+      const lengthNormalization =
+        weightedFrequency +
+        k1 * (1 - b + b * (bodyTerms.length / Math.max(1, averageLength)));
+      score +=
+        inverseFrequency *
+        ((weightedFrequency * (k1 + 1)) / lengthNormalization);
+    }
+    if (/什么是|定义|含义|指什么/.test(query) && /是|指|定义|称为/.test(candidate.text)) {
+      score += 0.45;
+    }
+    return score;
+  });
 }
 
 export function retrieve(
@@ -62,17 +100,37 @@ export function retrieve(
   chapters: Chapter[],
   limit = 2,
 ): Citation[] {
-  const candidates = chapters
-    .flatMap((chapter) =>
+  return retrieveCandidates(
+    query,
+    chapters.flatMap((chapter) =>
       chapter.blocks.map((block) => ({
         chapter,
         block,
-        score:
-          scoreBlock(query, block, chapter.title) *
-          (chapter.id === activeChapter.id ? 1.18 : 1),
+        text: block.smartText || block.text,
+        titleText: chapter.title,
       })),
-    )
-    .filter((candidate) => candidate.score >= 0.18)
+    ),
+    limit,
+    activeChapter.id,
+  );
+}
+
+function retrieveCandidates(
+  query: string,
+  rawCandidates: RetrievalCandidate[],
+  limit: number,
+  activeChapterId?: string,
+): Citation[] {
+  const rawScores = bm25Scores(query, rawCandidates);
+  const maxScore = Math.max(...rawScores, 0);
+  const candidates = rawCandidates
+    .map((candidate, index) => ({
+      ...candidate,
+      score:
+        (maxScore ? rawScores[index] / maxScore : 0) *
+        (candidate.chapter.id === activeChapterId ? 1.08 : 1),
+    }))
+    .filter((candidate) => candidate.score >= 0.08)
     .sort((a, b) => b.score - a.score);
 
   const strongest = candidates[0]?.score || 0;
@@ -96,6 +154,8 @@ export function retrieve(
 
   return selected.map(({ block, score }) => ({
     blockId: block.id,
+    documentId: selected.find((item) => item.block.id === block.id)?.documentId,
+    chapterId: block.chapterId,
     locator: block.locator,
     excerpt:
       (block.smartText || block.text).length > 240
@@ -103,6 +163,30 @@ export function retrieve(
         : block.smartText || block.text,
     score: Math.min(1, score),
   }));
+}
+
+export function retrieveDocuments(
+  query: string,
+  documents: StudyDocument[],
+  activeChapterId?: string,
+  limit = 3,
+): Citation[] {
+  return retrieveCandidates(
+    query,
+    documents.flatMap((document) =>
+      document.chapters.flatMap((chapter) =>
+        chapter.blocks.map((block) => ({
+          documentId: document.id,
+          chapter,
+          block,
+          text: block.smartText || block.text,
+          titleText: `${document.displayTitle || document.title} ${chapter.title}`,
+        })),
+      ),
+    ),
+    limit,
+    activeChapterId,
+  );
 }
 
 function extractKeyPoints(text: string): string[] {
@@ -132,18 +216,100 @@ export function createQuiz(chapter: Chapter, count = 5): QuizItem[] {
   });
   return chosen.map((block, index) => {
     const answer = (block.smartText || block.text).split(/[。！？]/)[0];
+    const kinds = [
+      "recall",
+      "distinguish",
+      "application",
+      "choice",
+    ] as const;
+    const kind = kinds[index % kinds.length];
+    const prompt =
+      kind === "recall"
+        ? `请用自己的话说明“${chapter.title}”中的核心概念。`
+        : kind === "distinguish"
+          ? `这段内容与相近概念相比，关键区别是什么？`
+          : kind === "application"
+            ? `如果把这段结论用于一个新情境，应如何解释？`
+            : `下面哪项最符合教材在此处表达的关键结论？`;
     return {
       id: `quiz-${chapter.id}-${block.id}`,
-      prompt:
-        index === 0
-          ? `请用自己的话说明“${chapter.title}”中的核心概念。`
-          : `教材在这里给出了什么关键结论？`,
+      kind,
+      prompt,
       answer,
+      rationale: `答案来自${block.locator}，应覆盖教材中的核心限定条件。`,
       locator: block.locator,
       evidenceBlockId: block.id,
+      evidenceBlockIds: [block.id],
       keyPoints: extractKeyPoints(answer),
     };
   });
+}
+
+export interface ReviewState {
+  intervalDays: number;
+  easeFactor: number;
+  repetitions: number;
+  lapses: number;
+  lastRating: ReviewRating;
+  lastReviewedAt: number;
+  dueAt: number;
+  updatedAt: number;
+}
+
+export function scheduleReview(
+  previous: Partial<ReviewSchedule> | undefined,
+  rating: ReviewRating,
+  now = Date.now(),
+): ReviewState {
+  const priorEase = Math.max(1.3, previous?.easeFactor ?? 2.5);
+  const priorInterval = Math.max(0, previous?.intervalDays ?? 0);
+  const priorRepetitions = Math.max(0, previous?.repetitions ?? 0);
+  const priorLapses = Math.max(0, previous?.lapses ?? 0);
+
+  let easeFactor = priorEase;
+  let intervalDays = priorInterval;
+  let repetitions = priorRepetitions;
+  let lapses = priorLapses;
+  let dueAt: number;
+
+  if (rating === "again") {
+    intervalDays = 0;
+    repetitions = 0;
+    lapses += 1;
+    easeFactor = Math.max(1.3, priorEase - 0.2);
+    dueAt = now + 10 * 60 * 1000;
+  } else {
+    repetitions += 1;
+    if (rating === "hard") {
+      intervalDays = Math.max(1, Math.round(Math.max(1, priorInterval) * 1.2));
+      easeFactor = Math.max(1.3, priorEase - 0.15);
+    } else if (rating === "easy") {
+      intervalDays =
+        priorRepetitions === 0
+          ? 4
+          : Math.max(4, Math.round(Math.max(1, priorInterval) * priorEase * 1.3));
+      easeFactor = priorEase + 0.15;
+    } else {
+      intervalDays =
+        priorRepetitions === 0
+          ? 1
+          : priorRepetitions === 1
+            ? 3
+            : Math.max(3, Math.round(Math.max(1, priorInterval) * priorEase));
+    }
+    dueAt = now + intervalDays * 24 * 60 * 60 * 1000;
+  }
+
+  return {
+    intervalDays,
+    easeFactor,
+    repetitions,
+    lapses,
+    lastRating: rating,
+    lastReviewedAt: now,
+    dueAt,
+    updatedAt: now,
+  };
 }
 
 export interface GradeResult {
