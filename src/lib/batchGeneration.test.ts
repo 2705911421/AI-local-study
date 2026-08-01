@@ -40,4 +40,22 @@ describe("batch generation", () => {
     ).resolves.toEqual(["ok"]);
     expect(task).toHaveBeenCalledTimes(2);
   });
+
+  it("stops claiming queued work after a terminal failure", async () => {
+    const terminalError = new Error("generation failed");
+    const first = vi.fn(async () => {
+      throw terminalError;
+    });
+    const queued = vi.fn(async () => "should not run");
+
+    await expect(
+      runBatchQueue([first, queued], {
+        concurrency: 1,
+        requestsPerMinute: 60_000,
+        retries: 0,
+      }),
+    ).rejects.toBe(terminalError);
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(queued).not.toHaveBeenCalled();
+  });
 });

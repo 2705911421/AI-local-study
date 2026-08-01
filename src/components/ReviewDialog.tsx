@@ -11,7 +11,7 @@ import type {
   StudyDocument,
   TextBlock,
 } from "../types";
-import { useAppContext } from "../AppContext";
+import { useShell } from "../workspace/WorkspaceDomains";
 
 export interface ReviewQueueItem {
   schedule: ReviewSchedule;
@@ -36,7 +36,7 @@ export function ReviewDialog({
   onRate: (item: ReviewQueueItem, rating: ReviewRating) => Promise<void>;
   onOpenEvidence: (item: ReviewQueueItem) => void;
 }) {
-  const ctx = useAppContext();
+  const shell = useShell();
   const [skipped, setSkipped] = useState<string[]>([]);
   const item = useMemo(
     () => items.find((candidate) => !skipped.includes(candidate.schedule.id)),
@@ -45,11 +45,11 @@ export function ReviewDialog({
 
   return (
     <Dialog.Root
-      open={ctx.overlay === "review"}
+      open={shell.overlay === "review"}
       onOpenChange={(open) => {
         if (!open) {
           setSkipped([]);
-          ctx.setOverlay(null);
+          shell.closeOverlay();
         }
       }}
     >

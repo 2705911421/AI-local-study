@@ -1,5 +1,5 @@
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { useAppContext } from "../AppContext";
+import { useLibrary, useNotes } from "../workspace/WorkspaceDomains";
 
 export function ConfirmDialog({
   type,
@@ -8,20 +8,21 @@ export function ConfirmDialog({
   type: "note" | "document";
   onConfirm: (id: string) => void;
 }) {
-  const ctx = useAppContext();
+  const library = useLibrary();
+  const notes = useNotes();
   const isNote = type === "note";
   const open = isNote
-    ? ctx.pendingDeleteNoteId !== null
-    : ctx.pendingDeleteDocumentId !== null;
+    ? notes.pendingDeleteNoteId !== null
+    : library.pendingDeleteDocumentId !== null;
   const onOpenChange = (open: boolean) => {
     if (!open) {
-      if (isNote) ctx.setPendingDeleteNoteId(null);
-      else ctx.setPendingDeleteDocumentId(null);
+      if (isNote) notes.requestNoteDelete(null);
+      else library.requestDocumentDelete(null);
     }
   };
   const pendingId = isNote
-    ? ctx.pendingDeleteNoteId
-    : ctx.pendingDeleteDocumentId;
+    ? notes.pendingDeleteNoteId
+    : library.pendingDeleteDocumentId;
 
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>

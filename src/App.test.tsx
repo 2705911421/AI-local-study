@@ -12,6 +12,10 @@ import {
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import {
+  observeWorkspaceRenders,
+  type WorkspaceRegion,
+} from "./workspace/renderDiagnostics";
+import {
   createMemoryStudyRepository,
   type StudyRepository,
 } from "./lib/studyRepository";
@@ -22,6 +26,40 @@ beforeAll(() => {
 });
 
 afterEach(cleanup);
+
+describe("Workspace 区域渲染隔离", () => {
+  it("聊天下输入不会提交教材侧栏和阅读区", () => {
+    const renders: WorkspaceRegion[] = [];
+    const stopObserving = observeWorkspaceRenders((region) => renders.push(region));
+    const { container } = render(<App />);
+    renders.length = 0;
+
+    fireEvent.change(container.querySelector(".chat-input input")!, {
+      target: { value: "render isolation" },
+    });
+
+    expect(renders).toContain("assistant");
+    expect(renders).not.toContain("library");
+    expect(renders).not.toContain("reader");
+    stopObserving();
+  });
+
+  it("章节搜索不会提交伴学区", () => {
+    const renders: WorkspaceRegion[] = [];
+    const stopObserving = observeWorkspaceRenders((region) => renders.push(region));
+    const { container } = render(<App />);
+    fireEvent.click(container.querySelector('[data-testid="chapter-search-toggle"]')!);
+    const search = container.querySelector("#chapter-search");
+    expect(search).toBeTruthy();
+    renders.length = 0;
+
+    fireEvent.change(search!, { target: { value: "test" } });
+
+    expect(renders).toContain("reader");
+    expect(renders).not.toContain("assistant");
+    stopObserving();
+  });
+});
 
 describe("知页核心用户流程", () => {
   it("章节搜索按钮会打开可用的查找栏", () => {

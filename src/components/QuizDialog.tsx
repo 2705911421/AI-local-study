@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Quotes, X } from "@phosphor-icons/react";
-import { useAppContext } from "../AppContext";
+import { useLearning, useShell } from "../workspace/WorkspaceDomains";
 
 export function QuizDialog({
   onGrade,
@@ -11,14 +11,15 @@ export function QuizDialog({
   onNext: () => void;
   onSetMastery: (value: "mastered" | "review") => void;
 }) {
-  const ctx = useAppContext();
-  const { quiz, quizIndex, quizAnswer, quizScore, quizMastery } = ctx;
+  const learning = useLearning();
+  const shell = useShell();
+  const { quiz, quizIndex, quizAnswer, quizScore, quizMastery } = learning;
   if (!quiz.length || !quiz[quizIndex]) return null;
 
   return (
     <Dialog.Root
-      open={ctx.overlay === "quiz" && quiz.length > 0}
-      onOpenChange={(open) => !open && ctx.setOverlay(null)}
+      open={shell.overlay === "quiz" && quiz.length > 0}
+      onOpenChange={(open) => !open && shell.closeOverlay()}
     >
       <Dialog.Portal>
         <Dialog.Overlay className="overlay quiz-overlay">
@@ -52,7 +53,7 @@ export function QuizDialog({
             <textarea
               rows={6}
               value={quizAnswer}
-              onChange={(event) => ctx.setQuizAnswer(event.target.value)}
+              onChange={(event) => learning.changeQuizAnswer(event.target.value)}
               placeholder="用自己的话作答…"
               disabled={quizScore !== null}
             />
@@ -92,7 +93,7 @@ export function QuizDialog({
             <div className="modal-actions">
               <button
                 className="secondary-button"
-                onClick={() => ctx.setOverlay(null)}
+                onClick={shell.closeOverlay}
               >
                 稍后继续
               </button>

@@ -18,7 +18,11 @@ import {
   validateBackupPassphrase,
   type BackupFormat,
 } from "../lib/backupCrypto";
-import { useAppContext } from "../AppContext";
+import {
+  useIntelligence,
+  usePreferences,
+  useShell,
+} from "../workspace/WorkspaceDomains";
 
 export function SettingsDialog({
   onTestModel,
@@ -43,18 +47,18 @@ export function SettingsDialog({
   ) => Promise<boolean>;
   onSavePreferences: (next: UserPreferences) => void;
 }) {
-  const ctx = useAppContext();
+  const shell = useShell();
+  const intelligence = useIntelligence();
+  const { preferences } = usePreferences();
   const {
     config,
-    setConfig,
-    preferences,
     modelOnline,
     modelSupportsVision,
     isTestingModel,
     modelOptions,
     modelListState,
     providerStatuses,
-  } = ctx;
+  } = intelligence;
   const [backupPassword, setBackupPassword] = useState("");
   const [backupPasswordConfirmation, setBackupPasswordConfirmation] =
     useState("");
@@ -71,7 +75,7 @@ export function SettingsDialog({
     useState<DesktopAutoBackupSettings | null>(null);
 
   useEffect(() => {
-    if (ctx.overlay !== "settings" || !window.zhiyeDesktop) return;
+    if (shell.overlay !== "settings" || !window.zhiyeDesktop) return;
     let cancelled = false;
     void window.zhiyeDesktop.getUpdateStatus().then((status) => {
       if (!cancelled) setUpdateStatus(status);
@@ -88,7 +92,7 @@ export function SettingsDialog({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [ctx.overlay]);
+  }, [shell.overlay]);
 
   const clearBackupSecrets = () => {
     setBackupPassword("");
@@ -101,7 +105,7 @@ export function SettingsDialog({
     setBackupFormat(null);
     setLegacyConfirmed(false);
     setBackupError("");
-    ctx.setOverlay(null);
+    shell.closeOverlay();
   };
 
   const exportEncryptedBackup = async () => {
@@ -166,7 +170,7 @@ export function SettingsDialog({
 
   return (
     <Dialog.Root
-      open={ctx.overlay === "settings"}
+      open={shell.overlay === "settings"}
       onOpenChange={(open) => !open && closeSettings()}
     >
       <Dialog.Portal>
@@ -538,7 +542,7 @@ export function SettingsDialog({
                 value={config.provider}
                 onChange={(event) => {
                   const provider = event.target.value as LlmProvider;
-                  setConfig({
+                  intelligence.changeConfig({
                     provider,
                     endpoint:
                       provider === "ollama"
@@ -549,9 +553,7 @@ export function SettingsDialog({
                     model: provider === "ollama" ? "qwen3:4b" : "",
                     apiKey: "",
                   });
-                  ctx.setModelOnline(null);
-                  ctx.setModelOptions([]);
-                  ctx.setModelListState("");
+                  intelligence.resetConnectionDiscovery();
                 }}
               >
                 {isDesktopApp() && <option value="codex">Codex</option>}
@@ -569,9 +571,11 @@ export function SettingsDialog({
                     aria-label="LLM 服务地址"
                     value={config.endpoint}
                     onChange={(event) => {
-                      setConfig({ ...config, endpoint: event.target.value });
-                      ctx.setModelOptions([]);
-                      ctx.setModelListState("");
+                      intelligence.changeConfig({
+                        ...config,
+                        endpoint: event.target.value,
+                      });
+                      intelligence.resetConnectionDiscovery();
                     }}
                     placeholder={
                       config.provider === "ollama"
@@ -587,7 +591,7 @@ export function SettingsDialog({
                       aria-label="LLM 模型名称"
                       value={config.model}
                       onChange={(event) =>
-                        setConfig({ ...config, model: event.target.value })
+                        intelligence.chooseModel(event.target.value)
                       }
                       placeholder="填写或从上游获取模型 ID"
                     />
@@ -608,7 +612,7 @@ export function SettingsDialog({
                   aria-label="上游模型列表"
                   value={config.model}
                   onChange={(event) =>
-                    setConfig({ ...config, model: event.target.value })
+                    intelligence.chooseModel(event.target.value)
                   }
                 >
                   {modelOptions.map((model) => (
@@ -634,7 +638,10 @@ export function SettingsDialog({
                   autoComplete="off"
                   value={config.apiKey}
                   onChange={(event) =>
-                    setConfig({ ...config, apiKey: event.target.value })
+                    intelligence.changeConfig({
+                      ...config,
+                      apiKey: event.target.value,
+                    })
                   }
                   placeholder={
                     config.provider === "claude" ? "sk-ant-…" : "sk-…"

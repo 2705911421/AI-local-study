@@ -1,72 +1,55 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppContextType } from "../AppContext";
-import { QuizDialog } from "./QuizDialog";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import App from "../App";
+import { createMemoryStudyRepository } from "../lib/studyRepository";
 
-let context: AppContextType;
-
-vi.mock("../AppContext", () => ({
-  useAppContext: () => context,
-}));
-
-beforeEach(() => {
-  context = {
-    overlay: "quiz",
-    setOverlay: vi.fn(),
-    quiz: [
-      {
-        id: "quiz-1",
-        prompt: "什么是命题？",
-        answer: "可以判断真假的陈述句。",
-        locator: "第一章",
-      },
-    ],
-    quizIndex: 0,
-    quizAnswer: "",
-    setQuizAnswer: vi.fn(),
-    quizScore: null,
-    quizMastery: [null],
-  } as unknown as AppContextType;
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+  HTMLElement.prototype.scrollTo = vi.fn();
 });
 
 afterEach(cleanup);
 
-describe("QuizDialog", () => {
-  it("答案为空时阻止提交，并把输入同步给练习状态", () => {
-    const onGrade = vi.fn();
-    render(
-      <QuizDialog onGrade={onGrade} onNext={vi.fn()} onSetMastery={vi.fn()} />,
-    );
+async function openQuiz() {
+  render(<App studyRepository={createMemoryStudyRepository()} />);
+  fireEvent.click(
+    screen.getAllByRole("button", { name: "开始章节练习" })[0],
+  );
+  return screen.findByPlaceholderText("用自己的话作答…");
+}
 
-    expect(screen.getByRole("button", { name: "提交答案" })).toBeDisabled();
-    fireEvent.change(screen.getByPlaceholderText("用自己的话作答…"), {
-      target: { value: "能够判断真假的句子" },
-    });
-    expect(context.setQuizAnswer).toHaveBeenCalledWith("能够判断真假的句子");
-    expect(onGrade).not.toHaveBeenCalled();
+describe("章节练习流程", () => {
+  it("答案为空时阻止提交并在输入后允许提交", async () => {
+    const answer = await openQuiz();
+    const submit = screen.getByRole("button", { name: "提交答案" });
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(answer, { target: { value: "能够判断真假的句子" } });
+
+    expect(answer).toHaveValue("能够判断真假的句子");
+    expect(submit).toBeEnabled();
   });
 
-  it("评分后显示教材依据并允许记录掌握程度", () => {
-    const onNext = vi.fn();
-    const onSetMastery = vi.fn();
-    context.quizAnswer = "回答";
-    context.quizScore = 0.8;
-    context.quizMastery = ["mastered"];
+  it("评分后显示教材依据并允许记录需复习", async () => {
+    const answer = await openQuiz();
+    fireEvent.change(answer, { target: { value: "命题是能够判断真假的陈述句" } });
+    fireEvent.click(screen.getByRole("button", { name: "提交答案" }));
 
-    render(
-      <QuizDialog
-        onGrade={vi.fn()}
-        onNext={onNext}
-        onSetMastery={onSetMastery}
-      />,
+    expect(await screen.findByText(/教材参考：/)).toBeVisible();
+    const review = screen.getByRole("button", { name: "需复习" });
+    fireEvent.click(review);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "需复习" })).toHaveClass(
+        "is-selected",
+      ),
     );
-
-    expect(screen.getByText(/教材参考：可以判断真假的陈述句/)).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "需复习" }));
-    fireEvent.click(screen.getByRole("button", { name: "完成练习" }));
-    expect(onSetMastery).toHaveBeenCalledWith("review");
-    expect(onNext).toHaveBeenCalledOnce();
   });
 });

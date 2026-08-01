@@ -1,22 +1,15 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useRef } from "react";
 import type {
   Chapter,
-  Highlight,
   QuizItem,
   Section,
   StudyDocument,
   StudyNote,
   TextBlock,
 } from "../types";
-import {
-  useAppContext,
-  type MobileStudyView,
-  type Overlay,
-  type RightTab,
-} from "../AppContext";
+import { useWorkspaceRuntime } from "../workspace/WorkspaceRuntimeContext";
 import { demoDocument } from "../lib/demo";
 import {
-  createQuiz,
   gradeAnswer,
   retrieve,
   retrieveDocuments,
@@ -29,7 +22,6 @@ import {
   enhanceCombinedTextBlocks,
   enhanceTextBlocks,
   explainPageImage,
-  getDesktopSettings,
   getProviderStatuses,
   gradeAnswerWithModel,
   generateQuizWithModel,
@@ -38,7 +30,6 @@ import {
   loginProvider,
   logoutProvider,
   saveDesktopSettings,
-  type LlmConfig,
 } from "../lib/intelligence/client";
 import { estimateGeneration } from "../lib/batchGeneration";
 import { importPipeline } from "../lib/importPipeline";
@@ -59,7 +50,7 @@ function getWelcomeMessage(document: StudyDocument) {
 // ─── usePersistence ──────────────────────────────────────────────────
 
 export function usePersistence() {
-  const { repository, setNotice } = useAppContext();
+  const { repository, setNotice } = useWorkspaceRuntime();
   const persistenceNoticeAtRef = useRef(0);
 
   const reportPersistenceFailure = useCallback(
@@ -101,17 +92,14 @@ export function usePersistence() {
 // ─── useDocumentManager ──────────────────────────────────────────────
 
 export function useDocumentManager() {
-  const ctx = useAppContext();
+  const ctx = useWorkspaceRuntime();
   const selectionRequestRef = useRef(0);
   const {
     repository,
-    documents,
     setDocuments,
     setTrashedDocuments,
-    activeDocumentId,
     setActiveDocumentId,
     activeDocument,
-    activeChapterId,
     setActiveChapterId,
     readingStates,
     setPdfFocusPage,
@@ -134,18 +122,29 @@ export function useDocumentManager() {
     setDailyMetrics,
     setPreferences,
     setNotice,
+    setPendingDeleteDocumentId,
+    setIsThinking,
+    setIsEnhancing,
+    questionControllerRef,
+    enhancementControllerRef,
+    readerRef,
   } = ctx;
 
   const { persistCommand, reportPersistenceFailure } = usePersistence();
 
   const cancelScopedWork = useCallback(() => {
-    ctx.questionControllerRef.current?.abort();
-    ctx.questionControllerRef.current = null;
-    ctx.enhancementControllerRef.current?.abort();
-    ctx.enhancementControllerRef.current = null;
-    ctx.setIsThinking(false);
-    ctx.setIsEnhancing(false);
-  }, [ctx]);
+    questionControllerRef.current?.abort();
+    questionControllerRef.current = null;
+    enhancementControllerRef.current?.abort();
+    enhancementControllerRef.current = null;
+    setIsThinking(false);
+    setIsEnhancing(false);
+  }, [
+    questionControllerRef,
+    enhancementControllerRef,
+    setIsThinking,
+    setIsEnhancing,
+  ]);
 
   const applyWorkspace = useCallback(
     (workspace: WorkspaceSnapshot) => {
@@ -257,7 +256,7 @@ export function useDocumentManager() {
     (chapter: Chapter) => {
       cancelScopedWork();
       const startPage = chapter.blocks.find((block) => block.page)?.page || 1;
-      ctx.readerRef.current?.scrollTo({ top: 0, behavior: "auto" });
+      readerRef.current?.scrollTo({ top: 0, behavior: "auto" });
       setActiveChapterId(chapter.id);
       setPdfFocusPage(startPage);
       setCurrentTextPage(startPage);
@@ -266,7 +265,7 @@ export function useDocumentManager() {
     },
     [
       cancelScopedWork,
-      ctx.readerRef,
+      readerRef,
       setActiveChapterId,
       setPdfFocusPage,
       setCurrentTextPage,
@@ -288,7 +287,7 @@ export function useDocumentManager() {
           ? "original"
           : "text",
       );
-      ctx.readerRef.current?.scrollTo({ top: 0, behavior: "auto" });
+      readerRef.current?.scrollTo({ top: 0, behavior: "auto" });
       setSidebarOpen(false);
     },
     [
@@ -298,7 +297,7 @@ export function useDocumentManager() {
       setPdfFocusPage,
       setCurrentTextPage,
       setReaderMode,
-      ctx.readerRef,
+      readerRef,
       setSidebarOpen,
     ],
   );
@@ -334,7 +333,7 @@ export function useDocumentManager() {
       );
       if (!workspace) return;
       applyWorkspace(workspace);
-      ctx.setPendingDeleteDocumentId(null);
+      setPendingDeleteDocumentId(null);
       if (activeDocument.id === documentId) selectDocument(demoDocument);
       setNotice("教材已移入回收站，将保留 30 天");
     },
@@ -344,7 +343,7 @@ export function useDocumentManager() {
       activeDocument.id,
       selectDocument,
       setNotice,
-      ctx.setPendingDeleteDocumentId,
+      setPendingDeleteDocumentId,
     ],
   );
 
@@ -387,13 +386,12 @@ export function useDocumentManager() {
 // ─── useChat ─────────────────────────────────────────────────────────
 
 export function useChat() {
-  const ctx = useAppContext();
+  const ctx = useWorkspaceRuntime();
   const {
     activeChapter,
     activeDocument,
     query,
     setQuery,
-    messages,
     setMessages,
     isThinking,
     setIsThinking,
@@ -402,16 +400,19 @@ export function useChat() {
     setModelOnline,
     documents,
     searchScope,
+    chatHydratingDocumentId,
+    setNotice,
+    preferences,
   } = ctx;
 
   const questionControllerRef = ctx.questionControllerRef;
 
   const submitQuestion = useCallback(
-    async (preset?: string) => {
+    async (preset?: string, scopeOverride?: typeof searchScope) => {
       const question = (preset || query).trim();
       if (!question || isThinking) return;
-      if (ctx.chatHydratingDocumentId === activeDocument.id) {
-        ctx.setNotice("正在读取该教材的伴学记录，请稍候");
+      if (chatHydratingDocumentId === activeDocument.id) {
+        setNotice("正在读取该教材的伴学记录，请稍候");
         return;
       }
       questionControllerRef.current?.abort();
@@ -428,22 +429,22 @@ export function useChat() {
 
       try {
         let citations =
-          searchScope === "library"
+          (scopeOverride || searchScope) === "library"
             ? retrieveDocuments(
                 question,
                 documents.filter((document) => document.kind !== "demo"),
                 activeChapter.id,
                 3,
-                ctx.preferences.semanticSearchEnabled !== false,
+                preferences.semanticSearchEnabled !== false,
               )
             : retrieve(
                 question,
                 activeChapter,
-                searchScope === "chapter"
+                (scopeOverride || searchScope) === "chapter"
                   ? [activeChapter]
                   : activeDocument.chapters,
                 3,
-                ctx.preferences.semanticSearchEnabled !== false,
+                preferences.semanticSearchEnabled !== false,
               );
         if (
           citations.length === 0 &&
@@ -475,7 +476,7 @@ export function useChat() {
               config,
               controller.signal,
             );
-          } catch (error) {
+          } catch {
             if (controller.signal.aborted) return;
             setModelOnline(false);
             answer = `当前模型服务未响应。根据检索到的教材原文：${citations[0].excerpt}`;
@@ -511,8 +512,8 @@ export function useChat() {
     [
       query,
       isThinking,
-      ctx.chatHydratingDocumentId,
-      ctx.setNotice,
+      chatHydratingDocumentId,
+      setNotice,
       activeChapter,
       activeDocument,
       documents,
@@ -524,6 +525,7 @@ export function useChat() {
       setMessages,
       setIsThinking,
       setModelOnline,
+      preferences.semanticSearchEnabled,
     ],
   );
 
@@ -531,10 +533,10 @@ export function useChat() {
     (message: { text: string }) => {
       void navigator.clipboard
         .writeText(message.text)
-        .then(() => ctx.setNotice("回答已复制"))
-        .catch(() => ctx.setNotice("复制失败，请手动选择文字"));
+        .then(() => setNotice("回答已复制"))
+        .catch(() => setNotice("复制失败，请手动选择文字"));
     },
-    [ctx.setNotice],
+    [setNotice],
   );
 
   const setMessageFeedback = useCallback(
@@ -550,9 +552,9 @@ export function useChat() {
             : message,
         ),
       );
-      ctx.setNotice("感谢反馈，已保存在本机");
+      setNotice("感谢反馈，已保存在本机");
     },
-    [setMessages, ctx.setNotice],
+    [setMessages, setNotice],
   );
 
   return { submitQuestion, copyMessage, setMessageFeedback };
@@ -561,15 +563,31 @@ export function useChat() {
 // ─── useNoteManager ──────────────────────────────────────────────────
 
 export function useNoteManager() {
-  const ctx = useAppContext();
-  const { activeDocument, activeChapter, notes, setNotes } = ctx;
+  const ctx = useWorkspaceRuntime();
+  const {
+    activeDocument,
+    activeChapter,
+    notes,
+    setNotes,
+    noteDraft,
+    noteQuote,
+    editingNoteId,
+    currentBlockId,
+    currentTextPage,
+    setEditingNoteId,
+    setNoteDraft,
+    setNoteQuote,
+    setNoteError,
+    setPendingDeleteNoteId,
+    setNotice,
+  } = ctx;
   const { persistCommand } = usePersistence();
 
   const addNote = useCallback(async () => {
-    const text = ctx.noteDraft.trim();
+    const text = noteDraft.trim();
     if (!text) return;
     const now = Date.now();
-    const previous = notes.find((note) => note.id === ctx.editingNoteId);
+    const previous = notes.find((note) => note.id === editingNoteId);
     const note = {
       id: previous?.id || crypto.randomUUID(),
       documentId: activeDocument.id,
@@ -577,41 +595,50 @@ export function useNoteManager() {
       text,
       createdAt: previous?.createdAt || now,
       updatedAt: now,
-      blockId: previous?.blockId || ctx.currentBlockId,
-      page: previous?.page || ctx.currentTextPage,
+      blockId: previous?.blockId || currentBlockId,
+      page: previous?.page || currentTextPage,
       quote: previous?.quote,
-      ...(ctx.noteQuote ? { quote: ctx.noteQuote } : {}),
+      ...(noteQuote ? { quote: noteQuote } : {}),
     };
     const workspace = await persistCommand(
       { type: "saveNote", note },
       "笔记保存失败：浏览器存储不可用或空间不足",
     );
     if (!workspace) {
-      ctx.setNoteError("笔记保存失败：浏览器存储不可用或空间不足。");
+      setNoteError("笔记保存失败：浏览器存储不可用或空间不足。");
       return;
     }
     setNotes(workspace.notes);
-    ctx.setNoteDraft("");
-    ctx.setNoteQuote("");
-    ctx.setEditingNoteId(null);
-    ctx.setNoteError("");
-    ctx.setNotice(previous ? "笔记已更新" : "笔记已保存在本机");
+    setNoteDraft("");
+    setNoteQuote("");
+    setEditingNoteId(null);
+    setNoteError("");
+    setNotice(previous ? "笔记已更新" : "笔记已保存在本机");
   }, [
-    ctx,
+    noteDraft,
+    noteQuote,
+    editingNoteId,
+    currentBlockId,
+    currentTextPage,
     notes,
     activeDocument.id,
     activeChapter.id,
     persistCommand,
     setNotes,
+    setNoteDraft,
+    setNoteQuote,
+    setEditingNoteId,
+    setNoteError,
+    setNotice,
   ]);
 
   const editNote = useCallback(
     (note: StudyNote) => {
-      ctx.setEditingNoteId(note.id);
-      ctx.setNoteDraft(note.text);
-      ctx.setNoteQuote(note.quote || "");
+      setEditingNoteId(note.id);
+      setNoteDraft(note.text);
+      setNoteQuote(note.quote || "");
     },
-    [ctx],
+    [setEditingNoteId, setNoteDraft, setNoteQuote],
   );
 
   const deleteNote = useCallback(
@@ -622,10 +649,10 @@ export function useNoteManager() {
       );
       if (!workspace) return;
       setNotes(workspace.notes);
-      ctx.setPendingDeleteNoteId(null);
-      ctx.setNotice("笔记已删除");
+      setPendingDeleteNoteId(null);
+      setNotice("笔记已删除");
     },
-    [persistCommand, setNotes, ctx],
+    [persistCommand, setNotes, setPendingDeleteNoteId, setNotice],
   );
 
   const exportNotes = useCallback(() => {
@@ -653,8 +680,8 @@ export function useNoteManager() {
     link.download = `${activeDocument.displayTitle || activeDocument.title}-笔记.md`;
     link.click();
     URL.revokeObjectURL(url);
-    ctx.setNotice("笔记已导出为 Markdown");
-  }, [notes, activeDocument, ctx.setNotice]);
+    setNotice("笔记已导出为 Markdown");
+  }, [notes, activeDocument, setNotice]);
 
   return { addNote, editNote, deleteNote, exportNotes };
 }
@@ -662,11 +689,10 @@ export function useNoteManager() {
 // ─── useQuiz ─────────────────────────────────────────────────────────
 
 export function useQuiz(quiz: QuizItem[]) {
-  const ctx = useAppContext();
+  const ctx = useWorkspaceRuntime();
   const {
     activeDocument,
     activeChapter,
-    overlay,
     setOverlay,
     modelOnline,
     config,
@@ -723,6 +749,8 @@ export function useQuiz(quiz: QuizItem[]) {
     ctx,
     activeDocument.id,
     activeChapter.id,
+    activeChapter.title,
+    activeChapter.blocks,
     quiz,
     modelOnline,
     config,
@@ -838,8 +866,8 @@ export function useQuiz(quiz: QuizItem[]) {
 // ─── useModelConfig ──────────────────────────────────────────────────
 
 export function useModelConfig() {
-  const ctx = useAppContext();
-  const { config, setConfig, setNotice } = ctx;
+  const ctx = useWorkspaceRuntime();
+  const { config, setConfig } = ctx;
 
   const testModel = useCallback(async () => {
     ctx.modelTestControllerRef.current?.abort();
@@ -881,7 +909,7 @@ export function useModelConfig() {
         ctx.setIsTestingModel(false);
       }
     }
-  }, [config, ctx]);
+  }, [config, ctx, setConfig]);
 
   const fetchModelOptions = useCallback(async () => {
     ctx.modelListControllerRef.current?.abort();
@@ -984,8 +1012,8 @@ export function useModelConfig() {
 // ─── useImporter ─────────────────────────────────────────────────────
 
 export function useImporter() {
-  const ctx = useAppContext();
-  const { activeDocument, documents, setDocuments } = ctx;
+  const ctx = useWorkspaceRuntime();
+  const { documents, setDocuments } = ctx;
   const { selectDocument } = useDocumentManager();
 
   const handleFile = useCallback(
@@ -1108,7 +1136,7 @@ export function useImporter() {
 // ─── useEnhancement ──────────────────────────────────────────────────
 
 export function useEnhancement() {
-  const ctx = useAppContext();
+  const ctx = useWorkspaceRuntime();
   const {
     activeDocument,
     activeChapter,
@@ -1117,8 +1145,6 @@ export function useEnhancement() {
     modelOnline,
     config,
   } = ctx;
-  const { persistCommand } = usePersistence();
-
   const runEnhancement = useCallback(
     async (targetBlocks: TextBlock[]) => {
       if (ctx.isEnhancing) return;
@@ -1310,7 +1336,14 @@ export function useEnhancement() {
         }
       }
     },
-    [ctx, activeDocument, modelOnline, config, setDocuments],
+    [
+      ctx,
+      activeDocument,
+      activeChapter.id,
+      modelOnline,
+      config,
+      setDocuments,
+    ],
   );
 
   const enhanceCurrentChapter = useCallback(async () => {
@@ -1562,38 +1595,57 @@ export function useReaderNav({
   searchResults: import("../types").TextBlock[];
   chapterHighlights: import("../types").Highlight[];
 }) {
-  const ctx = useAppContext();
-  const { activeDocument, activeChapter, readerMode } = ctx;
-
-  const highlightTimerRef = ctx.highlightTimerRef;
+  const ctx = useWorkspaceRuntime();
+  const {
+    activeDocument,
+    activeChapter,
+    setPdfFocusPage,
+    setCurrentTextPage,
+    setActiveChapterId,
+    setHighlightedBlockId,
+    setReaderMode,
+    setSearchIndex,
+    setCurrentBlockId,
+    setHighlights,
+    setNotice,
+    repository,
+    readerRef,
+    highlightTimerRef,
+  } = ctx;
 
   const syncPdfPage = useCallback(
     (page: number) => {
-      ctx.setPdfFocusPage(page);
-      ctx.setCurrentTextPage(page);
+      setPdfFocusPage(page);
+      setCurrentTextPage(page);
       const matchingChapter = activeDocument.chapters.find((chapter) =>
         chapter.blocks.some((block) => block.page === page),
       );
       if (matchingChapter && matchingChapter.id !== activeChapter.id) {
-        ctx.setActiveChapterId(matchingChapter.id);
+        setActiveChapterId(matchingChapter.id);
       }
     },
-    [activeDocument, activeChapter, ctx],
+    [
+      activeDocument,
+      activeChapter.id,
+      setPdfFocusPage,
+      setCurrentTextPage,
+      setActiveChapterId,
+    ],
   );
 
   const pulseCorrespondence = useCallback(
     (blockId?: string) => {
       if (!blockId) return;
-      ctx.setHighlightedBlockId(blockId);
+      setHighlightedBlockId(blockId);
       if (highlightTimerRef.current !== null) {
         window.clearTimeout(highlightTimerRef.current);
       }
       highlightTimerRef.current = window.setTimeout(() => {
-        ctx.setHighlightedBlockId(null);
+        setHighlightedBlockId(null);
         highlightTimerRef.current = null;
       }, 4000);
     },
-    [ctx, highlightTimerRef],
+    [highlightTimerRef, setHighlightedBlockId],
   );
 
   const findBlockForPage = useCallback(
@@ -1609,10 +1661,16 @@ export function useReaderNav({
     (page: number, blockId?: string) => {
       syncPdfPage(page);
       pulseCorrespondence(blockId || findBlockForPage(page)?.id);
-      ctx.setReaderMode("original");
-      ctx.readerRef.current?.scrollTo({ top: 0, behavior: "auto" });
+      setReaderMode("original");
+      readerRef.current?.scrollTo({ top: 0, behavior: "auto" });
     },
-    [syncPdfPage, pulseCorrespondence, findBlockForPage, ctx],
+    [
+      syncPdfPage,
+      pulseCorrespondence,
+      findBlockForPage,
+      setReaderMode,
+      readerRef,
+    ],
   );
 
   const showTextForPage = useCallback(
@@ -1622,18 +1680,18 @@ export function useReaderNav({
           chapter.blocks.some((block) => block.page === page),
         ) || activeChapter;
       if (matchingChapter.id !== activeChapter.id) {
-        ctx.setActiveChapterId(matchingChapter.id);
+        setActiveChapterId(matchingChapter.id);
       }
       const requestedBlock =
         matchingChapter.blocks.find((block) => block.id === blockId) ||
         matchingChapter.blocks.find((block) => block.page === page);
-      ctx.setCurrentTextPage(page);
+      setCurrentTextPage(page);
       pulseCorrespondence(requestedBlock?.id);
-      ctx.setReaderMode("text");
+      setReaderMode("text");
 
       const scrollWhenReady = (attempt = 0) => {
         const blocks = [
-          ...(ctx.readerRef.current?.querySelectorAll<HTMLElement>(
+          ...(readerRef.current?.querySelectorAll<HTMLElement>(
             ".text-block[data-page]",
           ) || []),
         ];
@@ -1646,12 +1704,20 @@ export function useReaderNav({
         } else if (attempt < 8) {
           window.setTimeout(() => scrollWhenReady(attempt + 1), 25);
         } else {
-          ctx.readerRef.current?.scrollTo({ top: 0, behavior: "auto" });
+          readerRef.current?.scrollTo({ top: 0, behavior: "auto" });
         }
       };
       window.setTimeout(scrollWhenReady, 50);
     },
-    [activeDocument, activeChapter, pulseCorrespondence, ctx],
+    [
+      activeDocument,
+      activeChapter,
+      pulseCorrespondence,
+      readerRef,
+      setActiveChapterId,
+      setCurrentTextPage,
+      setReaderMode,
+    ],
   );
 
   const openCitation = useCallback(
@@ -1663,7 +1729,7 @@ export function useReaderNav({
           return;
         }
       }
-      ctx.setReaderMode("text");
+      setReaderMode("text");
       window.setTimeout(() => {
         document.getElementById(blockId)?.scrollIntoView({
           behavior: "smooth",
@@ -1671,7 +1737,7 @@ export function useReaderNav({
         });
       }, 0);
     },
-    [activeDocument, showOriginalPage, ctx],
+    [activeDocument, showOriginalPage, setReaderMode],
   );
 
   const toggleHighlight = useCallback(
@@ -1685,9 +1751,9 @@ export function useReaderNav({
           failureMessage: string,
         ) => {
           try {
-            return await ctx.repository.apply(command);
+            return await repository.apply(command);
           } catch {
-            ctx.setNotice(failureMessage);
+            setNotice(failureMessage);
             return null;
           }
         },
@@ -1698,8 +1764,8 @@ export function useReaderNav({
           "取消高亮失败，本地记录未改变",
         );
         if (!workspace) return;
-        ctx.setHighlights(workspace.highlights);
-        ctx.setNotice("已取消高亮");
+        setHighlights(workspace.highlights);
+        setNotice("已取消高亮");
         return;
       }
       const highlight = {
@@ -1714,19 +1780,26 @@ export function useReaderNav({
         "高亮保存失败，请检查本地存储空间",
       );
       if (!workspace) return;
-      ctx.setHighlights(workspace.highlights);
-      ctx.setNotice("段落已加入高亮批注");
+      setHighlights(workspace.highlights);
+      setNotice("段落已加入高亮批注");
     },
-    [ctx, activeDocument, activeChapter],
+    [
+      repository,
+      setHighlights,
+      setNotice,
+      activeDocument,
+      activeChapter,
+      chapterHighlights,
+    ],
   );
 
   const goToSearchResult = useCallback(
     (index: number) => {
       if (!searchResults.length) return;
       const nextIndex = (index + searchResults.length) % searchResults.length;
-      ctx.setSearchIndex(nextIndex);
+      setSearchIndex(nextIndex);
       const block = searchResults[nextIndex];
-      ctx.setCurrentBlockId(block.id);
+      setCurrentBlockId(block.id);
       window.setTimeout(() => {
         document.getElementById(block.id)?.scrollIntoView({
           behavior: "smooth",
@@ -1734,7 +1807,7 @@ export function useReaderNav({
         });
       });
     },
-    [ctx],
+    [searchResults, setSearchIndex, setCurrentBlockId],
   );
 
   return {

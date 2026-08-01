@@ -1,66 +1,28 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppContextType } from "../AppContext";
-import { SettingsDialog } from "./SettingsDialog";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import App from "../App";
+import {
+  createMemoryStudyRepository,
+  type StudyRepository,
+} from "../lib/studyRepository";
 
-let context: AppContextType;
-
-vi.mock("../AppContext", () => ({
-  useAppContext: () => context,
-}));
-
-beforeEach(() => {
-  context = {
-    overlay: "settings",
-    setOverlay: vi.fn(),
-    config: {
-      provider: "ollama",
-      endpoint: "http://localhost:11434",
-      model: "qwen3:4b",
-      apiKey: "",
-    },
-    setConfig: vi.fn(),
-    preferences: {
-      theme: "auto",
-      fontScale: "medium",
-      lineHeight: "comfortable",
-      readingWidth: "medium",
-    },
-    modelOnline: null,
-    setModelOnline: vi.fn(),
-    modelSupportsVision: false,
-    isTestingModel: false,
-    modelOptions: [],
-    setModelOptions: vi.fn(),
-    modelListState: "",
-    setModelListState: vi.fn(),
-    providerStatuses: [],
-  } as unknown as AppContextType;
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+  HTMLElement.prototype.scrollTo = vi.fn();
 });
 
 afterEach(cleanup);
 
-function renderDialog(overrides = {}) {
-  const props = {
-    onTestModel: vi.fn(),
-    onFetchModelOptions: vi.fn(),
-    onSaveSettings: vi.fn(),
-    onChangeAgentLogin: vi.fn(),
-    onClearApiKey: vi.fn(async () => true),
-    onExportBackup: vi.fn(async () => true),
-    onRestoreBackup: vi.fn(async () => true),
-    onSavePreferences: vi.fn(),
-    ...overrides,
-  };
-  render(<SettingsDialog {...props} />);
-  return props;
-}
+describe("设置流程", () => {
+  it("拒绝弱备份密码且不会导出备份", async () => {
+    const memory = createMemoryStudyRepository();
+    const exportBackup = vi.fn(memory.exportPortableBackup);
+    const repository: StudyRepository = { ...memory, exportPortableBackup: exportBackup };
+    render(<App studyRepository={repository} />);
 
-describe("SettingsDialog", () => {
-  it("拒绝弱备份密码且不会调用导出", async () => {
-    const props = renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
     fireEvent.change(screen.getByLabelText("备份密码", { exact: true }), {
       target: { value: "short" },
     });
@@ -72,17 +34,25 @@ describe("SettingsDialog", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "至少需要 12 个字符",
     );
-    expect(props.onExportBackup).not.toHaveBeenCalled();
+    expect(exportBackup).not.toHaveBeenCalled();
   });
 
-  it("把阅读主题变更交给偏好保存入口", () => {
-    const props = renderDialog();
+  it("通过工作区接口保存阅读主题", async () => {
+    const memory = createMemoryStudyRepository();
+    const apply = vi.fn(memory.apply);
+    const repository: StudyRepository = { ...memory, apply };
+    render(<App studyRepository={repository} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
     fireEvent.change(screen.getByLabelText("主题"), {
       target: { value: "dark" },
     });
-    expect(props.onSavePreferences).toHaveBeenCalledWith({
-      ...context.preferences,
-      theme: "dark",
-    });
+
+    await waitFor(() =>
+      expect(apply).toHaveBeenCalledWith({
+        type: "savePreferences",
+        preferences: expect.objectContaining({ theme: "dark" }),
+      }),
+    );
   });
 });

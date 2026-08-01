@@ -7,17 +7,18 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { IMPORT_LIMITS } from "../lib/document";
-import { useAppContext } from "../AppContext";
+import { useLibrary, useShell } from "../workspace/WorkspaceDomains";
 
 export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
-  const ctx = useAppContext();
-  const { importState, importError, importProgress, importWithOcr } = ctx;
+  const library = useLibrary();
+  const shell = useShell();
+  const { importState, importError, importProgress, importWithOcr } = library;
 
   return (
     <Dialog.Root
-      open={ctx.overlay === "upload"}
+      open={shell.overlay === "upload"}
       onOpenChange={(open) => {
-        if (!open && importState !== "parsing") ctx.setOverlay(null);
+        if (!open && importState !== "parsing") shell.closeOverlay();
       }}
     >
       <Dialog.Portal>
@@ -77,7 +78,7 @@ export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
                   </small>
                   <button
                     className="cancel-import"
-                    onClick={() => ctx.importControllerRef.current?.abort()}
+                    onClick={library.cancelImport}
                   >
                     取消导入
                   </button>
@@ -103,7 +104,9 @@ export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
               <input
                 type="checkbox"
                 checked={importWithOcr}
-                onChange={(event) => ctx.setImportWithOcr(event.target.checked)}
+                onChange={(event) =>
+                  library.configureImportOcr(event.target.checked)
+                }
                 disabled={importState === "parsing"}
               />
               <span>
@@ -115,10 +118,10 @@ export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
               <label className="ocr-language">
                 识别语言
                 <select
-                  value={ctx.importOcrLanguages.join("+")}
+                  value={library.importOcrLanguages.join("+")}
                   disabled={importState === "parsing"}
                   onChange={(event) =>
-                    ctx.setImportOcrLanguages(event.target.value.split("+"))
+                    library.configureImportLanguages(event.target.value.split("+"))
                   }
                 >
                   <option value="chi_sim+eng">简体中文 + 英文</option>

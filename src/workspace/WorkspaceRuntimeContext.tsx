@@ -11,14 +11,14 @@ import type {
   StudyNote,
   TextBlock,
   UserPreferences,
-} from "./types";
-import type { ImportProgress } from "./lib/importPipeline";
+} from "../types";
+import type { ImportProgress } from "../lib/importPipeline";
 import type {
   LlmConfig,
   LlmProvider,
   ProviderStatus,
-} from "./lib/intelligence/client";
-import type { StudyRepository } from "./lib/studyRepository";
+} from "../lib/intelligence/client";
+import type { StudyRepository } from "../lib/studyRepository";
 
 export type Overlay = "upload" | "settings" | "quiz" | "review" | null;
 export type RightTab = "mentor" | "notes";
@@ -26,7 +26,7 @@ export type MobileStudyView = "reader" | "mentor" | "notes";
 export type SearchScope = "chapter" | "document" | "library";
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 
-export interface AppContextType {
+export interface WorkspaceRuntime {
   // ── Repository ──
   repository: StudyRepository;
 
@@ -44,7 +44,7 @@ export interface AppContextType {
   activeDocument: StudyDocument;
   activeChapterId: string;
   setActiveChapterId: Setter<string>;
-  activeChapter: import("./types").Chapter;
+  activeChapter: import("../types").Chapter;
 
   // ── UI Layout ──
   overlay: Overlay;
@@ -217,10 +217,16 @@ export interface AppContextType {
   reportPersistenceFailure: (message: string, background?: boolean) => void;
 }
 
-export const AppContext = createContext<AppContextType | null>(null);
+export const WorkspaceRuntimeContext = createContext<WorkspaceRuntime | null>(
+  null,
+);
 
-export function useAppContext(): AppContextType {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useAppContext must be used within AppProvider");
+export function useWorkspaceRuntime(): WorkspaceRuntime {
+  const ctx = useContext(WorkspaceRuntimeContext);
+  if (!ctx) {
+    throw new Error(
+      "useWorkspaceRuntime must be used within WorkspaceRuntimeContext.Provider",
+    );
+  }
   return ctx;
 }
