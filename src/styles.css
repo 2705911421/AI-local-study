@@ -1187,11 +1187,6 @@ button:active:not(:disabled) {
   border: 0;
   background: transparent;
   text-align: left;
-  transition: opacity var(--transition-fast);
-}
-
-.brand:hover {
-  opacity: 0.88;
 }
 
 .brand-mark {

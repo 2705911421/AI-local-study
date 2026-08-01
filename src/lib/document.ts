@@ -368,7 +368,9 @@ export function semanticPdfBlocks(
         sourceItemStart: Math.min(...sourceIndexes),
         sourceItemEnd: Math.max(...sourceIndexes) + 1,
         locator: `PDF 第 ${pageNumber} 页`,
-        blockKind: group.some((line) => line.table) ? "table" : "paragraph",
+        blockKind: (group.some((line) => line.table)
+          ? "table"
+          : "paragraph") as TextBlock["blockKind"],
       };
     })
     .filter((block) => block.text.length > 8);
