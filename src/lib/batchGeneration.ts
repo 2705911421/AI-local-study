@@ -59,9 +59,10 @@ export async function runBatchQueue<T>(
   const results = new Array<T>(tasks.length);
   let cursor = 0;
   let nextStartAt = 0;
+  let failure: unknown;
 
   const worker = async () => {
-    while (cursor < tasks.length) {
+    while (cursor < tasks.length && !failure) {
       const index = cursor++;
       const delay = Math.max(0, nextStartAt - Date.now());
       nextStartAt = Math.max(Date.now(), nextStartAt) + minimumInterval;
@@ -77,8 +78,10 @@ export async function runBatchQueue<T>(
           if (
             attempt >= retries ||
             (error instanceof DOMException && error.name === "AbortError")
-          )
-            throw error;
+          ) {
+            failure = error;
+            return;
+          }
           await new Promise((resolve) =>
             setTimeout(resolve, Math.min(4_000, 500 * 2 ** attempt)),
           );
@@ -90,5 +93,6 @@ export async function runBatchQueue<T>(
   await Promise.all(
     Array.from({ length: Math.min(concurrency, tasks.length) }, worker),
   );
+  if (failure) throw failure;
   return results;
 }

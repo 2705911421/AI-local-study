@@ -1192,6 +1192,7 @@ export function useEnhancement() {
       ctx.setIsEnhancing(true);
       ctx.setEnhanceError("");
       ctx.setEnhanceProgress("正在准备教材原文…");
+      let completedBlockIds = completedBeforeStart;
       try {
         const enhanced = await enhanceTextBlocks(
           pendingBlocks,
@@ -1218,13 +1219,14 @@ export function useEnhancement() {
               type: "saveDocument",
               document: partialDocument,
             });
+            completedBlockIds = [
+              ...new Set([...completedBeforeStart, ...partial.keys()]),
+            ];
             void ctx.repository.apply({
               type: "saveEnhancementJob",
               job: {
                 ...baseJob,
-                completedBlockIds: [
-                  ...new Set([...completedBeforeStart, ...partial.keys()]),
-                ],
+                completedBlockIds,
                 updatedAt: Date.now(),
               },
             });
@@ -1277,6 +1279,7 @@ export function useEnhancement() {
             type: "saveEnhancementJob",
             job: {
               ...baseJob,
+              completedBlockIds,
               status: "paused",
               updatedAt: Date.now(),
             },
@@ -1287,8 +1290,11 @@ export function useEnhancement() {
           type: "saveEnhancementJob",
           job: {
             ...baseJob,
+            completedBlockIds,
             status: "failed",
-            failedBlockIds: pendingBlocks.map((block) => block.id),
+            failedBlockIds: pendingBlocks
+              .filter((block) => !completedBlockIds.includes(block.id))
+              .map((block) => block.id),
             error: error instanceof Error ? error.message : "智能文本生成失败",
             updatedAt: Date.now(),
           },
