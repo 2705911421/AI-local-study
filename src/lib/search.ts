@@ -20,17 +20,15 @@ function terms(input: string): string[] {
     .toLowerCase()
     .replace(/[，。！？、；：“”‘’（）《》【】,.!?;:'"()[\]{}]/g, " ");
   const latin = normalized.match(/[a-z0-9_→∈∉]+/g) || [];
-  const chinese = normalized
-    .split(/\s+/)
-    .flatMap((part) => {
-      if (!/[\u4e00-\u9fff]/.test(part)) return [];
-      const chars = [...part];
-      const result = [part];
-      for (let i = 0; i < chars.length - 1; i += 1) {
-        result.push(chars.slice(i, i + 2).join(""));
-      }
-      return result;
-    });
+  const chinese = normalized.split(/\s+/).flatMap((part) => {
+    if (!/[\u4e00-\u9fff]/.test(part)) return [];
+    const chars = [...part];
+    const result = [part];
+    for (let i = 0; i < chars.length - 1; i += 1) {
+      result.push(chars.slice(i, i + 2).join(""));
+    }
+    return result;
+  });
   return [...new Set([...latin, ...chinese])].filter(
     (term) => term.length > 1 && !STOP_WORDS.has(term),
   );

@@ -1,13 +1,15 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { FileArrowUp, ShieldCheck, BookOpen, Check, X } from "@phosphor-icons/react";
+import {
+  FileArrowUp,
+  ShieldCheck,
+  BookOpen,
+  Check,
+  X,
+} from "@phosphor-icons/react";
 import { IMPORT_LIMITS } from "../lib/document";
 import { useAppContext } from "../AppContext";
 
-export function ImportDialog({
-  onFile,
-}: {
-  onFile: (file?: File) => void;
-}) {
+export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
   const ctx = useAppContext();
   const { importState, importError, importProgress, importWithOcr } = ctx;
 
@@ -35,8 +37,8 @@ export function ImportDialog({
             </Dialog.Description>
             <div className="import-limits">
               <span>
-                PDF 最大 {Math.round(IMPORT_LIMITS.pdfBytes / 1024 / 1024)} MB{" "}
-                · {IMPORT_LIMITS.pdfPages} 页
+                PDF 最大 {Math.round(IMPORT_LIMITS.pdfBytes / 1024 / 1024)} MB ·{" "}
+                {IMPORT_LIMITS.pdfPages} 页
               </span>
               <span>
                 EPUB 最大 {Math.round(IMPORT_LIMITS.epubBytes / 1024 / 1024)} MB
@@ -75,9 +77,7 @@ export function ImportDialog({
                   </small>
                   <button
                     className="cancel-import"
-                    onClick={() =>
-                      ctx.importControllerRef.current?.abort()
-                    }
+                    onClick={() => ctx.importControllerRef.current?.abort()}
                   >
                     取消导入
                   </button>
@@ -91,33 +91,24 @@ export function ImportDialog({
                 <>
                   <BookOpen size={32} />
                   <strong>导入 PDF 或 EPUB 教材</strong>
-                  <label
-                    className="file-picker-button"
-                    htmlFor="textbook-file"
-                  >
+                  <label className="file-picker-button" htmlFor="textbook-file">
                     从电脑选择文件
                   </label>
                   <small>也可以将文件拖放到这个区域</small>
                 </>
               )}
             </div>
-            {importError && (
-              <div className="import-error">{importError}</div>
-            )}
+            {importError && <div className="import-error">{importError}</div>}
             <label className="ocr-option">
               <input
                 type="checkbox"
                 checked={importWithOcr}
-                onChange={(event) =>
-                  ctx.setImportWithOcr(event.target.checked)
-                }
+                onChange={(event) => ctx.setImportWithOcr(event.target.checked)}
                 disabled={importState === "parsing"}
               />
               <span>
                 扫描版 PDF 启用本地 OCR
-                <small>
-                  首次使用会下载并缓存中英文识别模型，页面不会上传
-                </small>
+                <small>首次使用会下载并缓存中英文识别模型，页面不会上传</small>
               </span>
             </label>
             {importWithOcr && (

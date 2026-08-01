@@ -100,11 +100,7 @@ describe("model capabilities and diagram input", () => {
     };
 
     await expect(
-      explainPageImage(
-        "data:image/jpeg;base64,YWJj",
-        184,
-        externalConfig,
-      ),
+      explainPageImage("data:image/jpeg;base64,YWJj", 184, externalConfig),
     ).resolves.toBe("图示说明");
     const request = JSON.parse(
       String((fetchMock.mock.calls[0]?.[1] as RequestInit).body),

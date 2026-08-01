@@ -53,7 +53,12 @@ export interface WorkspaceSnapshot {
 
 export type StudyCommand =
   | { type: "saveDocument"; document: StudyDocument }
-  | { type: "renameDocument"; documentId: string; displayTitle: string; now?: number }
+  | {
+      type: "renameDocument";
+      documentId: string;
+      displayTitle: string;
+      now?: number;
+    }
   | { type: "trashDocument"; documentId: string; now?: number }
   | { type: "restoreDocument"; documentId: string; now?: number }
   | { type: "purgeExpiredTrash"; now?: number }
@@ -89,6 +94,11 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   fontScale: "medium",
   lineHeight: "comfortable",
   readingWidth: "medium",
+  semanticSearchEnabled: true,
+  batchConcurrency: 2,
+  batchRequestsPerMinute: 30,
+  inputPricePerMillion: 0,
+  outputPricePerMillion: 0,
 };
 
 interface LegacyNote {
@@ -126,12 +136,15 @@ function normalizeReviewSchedule(schedule: ReviewSchedule): ReviewSchedule {
   const legacyIntervals = [1, 3, 7, 14, 30];
   const intervalDays =
     schedule.intervalDays ??
-    legacyIntervals[Math.min(schedule.intervalIndex ?? 0, legacyIntervals.length - 1)];
+    legacyIntervals[
+      Math.min(schedule.intervalIndex ?? 0, legacyIntervals.length - 1)
+    ];
   return {
     ...schedule,
     intervalDays,
     easeFactor: schedule.easeFactor ?? 2.5,
-    repetitions: schedule.repetitions ?? Math.max(0, schedule.intervalIndex ?? 0),
+    repetitions:
+      schedule.repetitions ?? Math.max(0, schedule.intervalIndex ?? 0),
     lapses: schedule.lapses ?? 0,
   };
 }
@@ -168,12 +181,14 @@ function createSnapshot(seed: Seed = {}): WorkspaceSnapshot {
     checkpoints: seed.checkpoints || [],
     dailyMetrics: seed.dailyMetrics || [],
     enhancementJobs: seed.enhancementJobs || [],
-    preferences: seed.preferences || DEFAULT_PREFERENCES,
+    preferences: { ...DEFAULT_PREFERENCES, ...(seed.preferences || {}) },
   };
 }
 
 function recordsForDocument(snapshot: WorkspaceSnapshot, documentId: string) {
-  snapshot.notes = snapshot.notes.filter((item) => item.documentId !== documentId);
+  snapshot.notes = snapshot.notes.filter(
+    (item) => item.documentId !== documentId,
+  );
   snapshot.highlights = snapshot.highlights.filter(
     (item) => item.documentId !== documentId,
   );
@@ -197,11 +212,7 @@ function recordsForDocument(snapshot: WorkspaceSnapshot, documentId: string) {
   );
 }
 
-function upsert<T>(
-  items: T[],
-  item: T,
-  getKey: (value: T) => string,
-): T[] {
+function upsert<T>(items: T[], item: T, getKey: (value: T) => string): T[] {
   const key = getKey(item);
   return [item, ...items.filter((value) => getKey(value) !== key)];
 }
@@ -223,7 +234,11 @@ function applyToSnapshot(
     case "renameDocument":
       snapshot.documents = snapshot.documents.map((document) =>
         document.id === command.documentId
-          ? { ...document, displayTitle: command.displayTitle.trim(), updatedAt: now }
+          ? {
+              ...document,
+              displayTitle: command.displayTitle.trim(),
+              updatedAt: now,
+            }
           : document,
       );
       break;
@@ -270,7 +285,9 @@ function applyToSnapshot(
       snapshot.notes = upsert(snapshot.notes, command.note, (item) => item.id);
       break;
     case "deleteNote":
-      snapshot.notes = snapshot.notes.filter((item) => item.id !== command.noteId);
+      snapshot.notes = snapshot.notes.filter(
+        (item) => item.id !== command.noteId,
+      );
       break;
     case "saveHighlight":
       snapshot.highlights = upsert(
@@ -400,7 +417,9 @@ async function importSnapshot(blob: Blob): Promise<WorkspaceSnapshot> {
   const zip = await JSZip.loadAsync(await blob.arrayBuffer());
   const manifestFile = zip.file("manifest.json");
   if (!manifestFile) throw new Error("备份缺少 manifest.json");
-  const manifest = JSON.parse(await manifestFile.async("string")) as BackupManifest;
+  const manifest = JSON.parse(
+    await manifestFile.async("string"),
+  ) as BackupManifest;
   if (
     ![1, 2].includes(manifest.version) ||
     !Array.isArray(manifest.workspace.documents)
@@ -452,7 +471,8 @@ function mergeSnapshots(
       documents.push(document);
     } else if (
       (document.updatedAt || document.createdAt) >=
-      (documents[duplicateIndex].updatedAt || documents[duplicateIndex].createdAt)
+      (documents[duplicateIndex].updatedAt ||
+        documents[duplicateIndex].createdAt)
     ) {
       documents[duplicateIndex] = document;
     }
@@ -549,13 +569,18 @@ function openDb(): Promise<IDBDatabase> {
 
 async function readAll<T>(db: IDBDatabase, store: StoreName): Promise<T[]> {
   return new Promise((resolve, reject) => {
-    const request = db.transaction(store, "readonly").objectStore(store).getAll();
+    const request = db
+      .transaction(store, "readonly")
+      .objectStore(store)
+      .getAll();
     request.onsuccess = () => resolve(request.result as T[]);
     request.onerror = () => reject(request.error);
   });
 }
 
-async function loadBrowserSnapshot(db: IDBDatabase): Promise<WorkspaceSnapshot> {
+async function loadBrowserSnapshot(
+  db: IDBDatabase,
+): Promise<WorkspaceSnapshot> {
   const [
     documents,
     notes,
@@ -597,11 +622,14 @@ async function loadBrowserSnapshot(db: IDBDatabase): Promise<WorkspaceSnapshot> 
 }
 
 /** Incrementally apply a command to IndexedDB — only touches affected stores. */
-async function persistIncremental(db: IDBDatabase, snapshot: WorkspaceSnapshot, command: StudyCommand) {
+async function persistIncremental(
+  db: IDBDatabase,
+  snapshot: WorkspaceSnapshot,
+  command: StudyCommand,
+) {
   // Commands that remove documents cascade across all stores; fall back to full persist.
   const needsFullPersist =
-    command.type === "purgeExpiredTrash" ||
-    command.type === "emptyTrash";
+    command.type === "purgeExpiredTrash" || command.type === "emptyTrash";
 
   if (needsFullPersist) {
     await persistSnapshot(db, snapshot);
@@ -665,11 +693,15 @@ async function persistIncremental(db: IDBDatabase, snapshot: WorkspaceSnapshot, 
         storeDeletes.set("enhancementJobs", [command.jobId]);
         break;
       case "savePreferences":
-        storeWrites.set("preferences", [{ id: "user", ...command.preferences }]);
+        storeWrites.set("preferences", [
+          { id: "user", ...command.preferences },
+        ]);
         break;
     }
 
-    const involvedStores = [...new Set([...storeWrites.keys(), ...storeDeletes.keys()])];
+    const involvedStores = [
+      ...new Set([...storeWrites.keys(), ...storeDeletes.keys()]),
+    ];
     if (involvedStores.length === 0) {
       resolve();
       return;
@@ -733,7 +765,7 @@ export function createBrowserStudyRepository(): StudyRepository {
   async function loadAndMigrate(): Promise<WorkspaceSnapshot> {
     const db = await openDb();
     try {
-      let snapshot = await loadBrowserSnapshot(db);
+      const snapshot = await loadBrowserSnapshot(db);
       const legacy = readLegacyNotes();
       if (!snapshot.notes.length && legacy.length) {
         snapshot.notes = migrateLegacyNotes(legacy, snapshot.documents);

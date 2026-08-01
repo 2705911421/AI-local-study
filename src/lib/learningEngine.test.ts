@@ -59,10 +59,11 @@ describe("LearningEngine", () => {
   });
 
   it("离线评分保守地区分覆盖完整与依据不足", () => {
-    const good = gradeAnswer(
-      "命题是可以判断真假的陈述句，并且有确定真值。",
-      ["判断真假", "陈述句", "真值"],
-    );
+    const good = gradeAnswer("命题是可以判断真假的陈述句，并且有确定真值。", [
+      "判断真假",
+      "陈述句",
+      "真值",
+    ]);
     const weak = gradeAnswer("这是一种逻辑知识。", [
       "判断真假",
       "陈述句",

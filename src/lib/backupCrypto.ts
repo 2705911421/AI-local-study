@@ -28,11 +28,16 @@ export function validateBackupPassphrase(passphrase: string): void {
 }
 
 export async function inspectBackupFormat(blob: Blob): Promise<BackupFormat> {
-  const prefix = new Uint8Array(await blob.slice(0, MAGIC.length).arrayBuffer());
+  const prefix = new Uint8Array(
+    await blob.slice(0, MAGIC.length).arrayBuffer(),
+  );
   if (equalBytes(prefix, MAGIC)) return "encrypted-v2";
   if (
     LEGACY_ZIP_SIGNATURES.some((signature) =>
-      equalBytes(prefix.subarray(0, signature.length), Uint8Array.from(signature)),
+      equalBytes(
+        prefix.subarray(0, signature.length),
+        Uint8Array.from(signature),
+      ),
     )
   ) {
     return "legacy-v1";
@@ -91,7 +96,8 @@ export async function decryptBackupPayload(
     ).getUint32(0, false);
     const headerStart = MAGIC.length + 4;
     const headerEnd = headerStart + headerLength;
-    if (headerLength < 2 || headerEnd >= bytes.length) throw new Error("header");
+    if (headerLength < 2 || headerEnd >= bytes.length)
+      throw new Error("header");
     const headerBytes = bytes.subarray(headerStart, headerEnd);
     const header = JSON.parse(
       new TextDecoder().decode(headerBytes),

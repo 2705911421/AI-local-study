@@ -1,12 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  copyFile,
-  mkdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -28,8 +22,7 @@ const packageJson = JSON.parse(
 const installerName = `Zhiye-${packageJson.version}-windows-x64.exe`;
 const requireSignature = process.argv.includes("--require-signature");
 const allowUnsigned = process.argv.includes("--unsigned");
-const signingCertificate =
-  process.env.WIN_CSC_LINK || process.env.CSC_LINK;
+const signingCertificate = process.env.WIN_CSC_LINK || process.env.CSC_LINK;
 
 if (requireSignature === allowUnsigned) {
   throw new Error(
@@ -49,24 +42,25 @@ try {
   await run(process.execPath, [
     path.join(projectRoot, "scripts", "prepare-agent-runtimes.mjs"),
   ]);
-  await run(process.execPath, [
-    builderCli,
-    "--win",
-    "nsis",
-    "--x64",
-    `--config.forceCodeSigning=${requireSignature}`,
-    `--config.directories.output=${output.replaceAll("\\", "/")}`,
-  ], {
-    CSC_IDENTITY_AUTO_DISCOVERY: requireSignature ? "true" : "false",
-  });
+  await run(
+    process.execPath,
+    [
+      builderCli,
+      "--win",
+      "nsis",
+      "--x64",
+      `--config.forceCodeSigning=${requireSignature}`,
+      `--config.directories.output=${output.replaceAll("\\", "/")}`,
+    ],
+    {
+      CSC_IDENTITY_AUTO_DISCOVERY: requireSignature ? "true" : "false",
+    },
+  );
   const builtInstaller = path.join(output, installerName);
   if (requireSignature) await verifySignature(builtInstaller);
   await mkdir(artifacts, { recursive: true });
   await Promise.all([
-    copyFile(
-      builtInstaller,
-      path.join(artifacts, installerName),
-    ),
+    copyFile(builtInstaller, path.join(artifacts, installerName)),
     copyFile(
       path.join(output, `${installerName}.blockmap`),
       path.join(artifacts, `${installerName}.blockmap`),
@@ -96,11 +90,7 @@ try {
       `releaseDate: '${releaseDate}'`,
       "",
     ].join("\n");
-    await writeFile(
-      path.join(artifacts, "latest.yml"),
-      latestYaml,
-      "utf8",
-    );
+    await writeFile(path.join(artifacts, "latest.yml"), latestYaml, "utf8");
     await writeFile(
       path.join(artifacts, "release-notes.json"),
       JSON.stringify(
@@ -156,7 +146,7 @@ async function verifySignature(installer) {
   const command = [
     "$signature = Get-AuthenticodeSignature -LiteralPath $env:ZHIYE_INSTALLER;",
     "if ($signature.Status -ne 'Valid') {",
-    "  throw \"Installer signature is $($signature.Status): $($signature.StatusMessage)\"",
+    '  throw "Installer signature is $($signature.Status): $($signature.StatusMessage)"',
     "}",
   ].join(" ");
   await run(

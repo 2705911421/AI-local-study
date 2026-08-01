@@ -9,7 +9,7 @@ import {
   codexThreadOptions,
   extractProviderRuntime,
   getClaudeCredential,
-} from "./agent-source.mjs";
+} from "./agent-source.js";
 
 describe("agent isolation policy", () => {
   it("runs Codex in an empty read-only workspace without network or approvals", () => {

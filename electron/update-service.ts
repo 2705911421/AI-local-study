@@ -1,5 +1,43 @@
+import type { AppUpdater, ProgressInfo, UpdateInfo } from "electron-updater";
+
+export type UpdateStatus =
+  | "disabled"
+  | "idle"
+  | "checking"
+  | "current"
+  | "downloading"
+  | "ready"
+  | "error";
+
+export interface UpdateState {
+  status: UpdateStatus;
+  currentVersion: string;
+  availableVersion: string;
+  progress: number;
+  message: string;
+}
+
+interface UpdateServiceOptions {
+  updater: Pick<
+    AppUpdater,
+    | "autoDownload"
+    | "autoInstallOnAppQuit"
+    | "setFeedURL"
+    | "on"
+    | "checkForUpdatesAndNotify"
+    | "quitAndInstall"
+  >;
+  feedUrl?: string;
+  packaged: boolean;
+}
+
 export class UpdateService {
-  constructor({ updater, feedUrl, packaged }) {
+  private readonly updater: UpdateServiceOptions["updater"];
+  private readonly feedUrl: string;
+  readonly enabled: boolean;
+  private state: UpdateState;
+
+  constructor({ updater, feedUrl, packaged }: UpdateServiceOptions) {
     this.updater = updater;
     this.feedUrl = normalizeUpdateUrl(feedUrl);
     this.enabled = Boolean(packaged && this.feedUrl);
@@ -15,27 +53,27 @@ export class UpdateService {
     updater.autoInstallOnAppQuit = true;
     updater.setFeedURL({ provider: "generic", url: this.feedUrl });
     updater.on("checking-for-update", () => this.patch({ status: "checking" }));
-    updater.on("update-not-available", (info) =>
+    updater.on("update-not-available", (info: UpdateInfo) =>
       this.patch({
         status: "current",
         currentVersion: info?.version || "",
         message: "当前已是最新版本",
       }),
     );
-    updater.on("update-available", (info) =>
+    updater.on("update-available", (info: UpdateInfo) =>
       this.patch({
         status: "downloading",
         availableVersion: info?.version || "",
         message: "发现新版本，正在安全下载",
       }),
     );
-    updater.on("download-progress", (progress) =>
+    updater.on("download-progress", (progress: ProgressInfo) =>
       this.patch({
         status: "downloading",
         progress: Math.round(progress?.percent || 0),
       }),
     );
-    updater.on("update-downloaded", (info) =>
+    updater.on("update-downloaded", (info: UpdateInfo) =>
       this.patch({
         status: "ready",
         availableVersion: info?.version || this.state.availableVersion,
@@ -43,7 +81,7 @@ export class UpdateService {
         message: "新版本已下载，可重启安装",
       }),
     );
-    updater.on("error", (error) =>
+    updater.on("error", (error: Error) =>
       this.patch({
         status: "error",
         message: error instanceof Error ? error.message : "更新检查失败",
@@ -51,15 +89,15 @@ export class UpdateService {
     );
   }
 
-  patch(next) {
+  private patch(next: Partial<UpdateState>): void {
     this.state = { ...this.state, ...next };
   }
 
-  status() {
+  status(): UpdateState {
     return { ...this.state };
   }
 
-  async check() {
+  async check(): Promise<UpdateState> {
     if (!this.enabled) return this.status();
     this.patch({ status: "checking", message: "正在检查更新" });
     try {
@@ -73,14 +111,14 @@ export class UpdateService {
     return this.status();
   }
 
-  install() {
+  install(): boolean {
     if (!this.enabled || this.state.status !== "ready") return false;
     this.updater.quitAndInstall(false, true);
     return true;
   }
 }
 
-export function normalizeUpdateUrl(value) {
+export function normalizeUpdateUrl(value?: string): string {
   if (!value) return "";
   try {
     const url = new URL(value);

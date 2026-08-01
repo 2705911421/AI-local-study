@@ -18,9 +18,7 @@ import type {
   LlmProvider,
   ProviderStatus,
 } from "./lib/intelligence/client";
-import type {
-  StudyRepository,
-} from "./lib/studyRepository";
+import type { StudyRepository } from "./lib/studyRepository";
 
 export type Overlay = "upload" | "settings" | "quiz" | "review" | null;
 export type RightTab = "mentor" | "notes";

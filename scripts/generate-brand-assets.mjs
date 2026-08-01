@@ -29,10 +29,7 @@ const icon512 = renderPng(image, 512);
 await Promise.all([
   writeFile(path.join(buildDirectory, "icon.png"), icon512),
   writeFile(path.join(buildDirectory, "icon.ico"), await pngToIco(pngs)),
-  writeFile(
-    path.join(artifactsDirectory, "zhiye-logo-preview.png"),
-    icon512,
-  ),
+  writeFile(path.join(artifactsDirectory, "zhiye-logo-preview.png"), icon512),
 ]);
 
 console.log("Brand assets generated in build/, public/brand/, and artifacts/.");

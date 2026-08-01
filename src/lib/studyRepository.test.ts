@@ -41,14 +41,12 @@ describe("StudyRepository", () => {
     const workspace = await repository.loadWorkspace();
     expect(
       workspace.notes.filter(
-        (note) =>
-          note.documentId === "doc-a" && note.chapterId === "pdf-c1",
+        (note) => note.documentId === "doc-a" && note.chapterId === "pdf-c1",
       ),
     ).toHaveLength(1);
     expect(
       workspace.notes.filter(
-        (note) =>
-          note.documentId === "doc-b" && note.chapterId === "pdf-c1",
+        (note) => note.documentId === "doc-b" && note.chapterId === "pdf-c1",
       ),
     ).toHaveLength(0);
   });
@@ -69,7 +67,11 @@ describe("StudyRepository", () => {
       ],
     });
 
-    await repository.apply({ type: "trashDocument", documentId: "doc-a", now: 1 });
+    await repository.apply({
+      type: "trashDocument",
+      documentId: "doc-a",
+      now: 1,
+    });
     let workspace = await repository.loadWorkspace();
     expect(workspace.documents[0].deletedAt).toBe(1);
     expect(workspace.notes).toHaveLength(1);
@@ -167,9 +169,7 @@ describe("StudyRepository", () => {
         },
       }),
     );
-    const legacy = new Blob([
-      await zip.generateAsync({ type: "arraybuffer" }),
-    ]);
+    const legacy = new Blob([await zip.generateAsync({ type: "arraybuffer" })]);
     const target = createMemoryStudyRepository();
     const restored = await target.restoreBackup(legacy);
     expect(restored.documents[0].id).toBe(documentA.id);

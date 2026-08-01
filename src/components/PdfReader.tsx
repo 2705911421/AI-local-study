@@ -148,11 +148,7 @@ export function PdfReader({
       const pdfPage = await document.getPage(
         Math.min(Math.max(1, page), document.numPages),
       );
-      if (
-        cancelled ||
-        runId !== renderRunRef.current ||
-        !canvasRef.current
-      ) {
+      if (cancelled || runId !== renderRunRef.current || !canvasRef.current) {
         return;
       }
       const baseViewport = pdfPage.getViewport({ scale: 1 });
@@ -254,9 +250,11 @@ export function PdfReader({
         const left = Math.min(...itemRects.map((rect) => rect.left)) - padding;
         const top = Math.min(...itemRects.map((rect) => rect.top)) - padding;
         const right =
-          Math.max(...itemRects.map((rect) => rect.left + rect.width)) + padding;
+          Math.max(...itemRects.map((rect) => rect.left + rect.width)) +
+          padding;
         const bottom =
-          Math.max(...itemRects.map((rect) => rect.top + rect.height)) + padding;
+          Math.max(...itemRects.map((rect) => rect.top + rect.height)) +
+          padding;
         regions.push({
           blockId: block.id,
           sourceBlockIds: [block.id],
@@ -278,11 +276,7 @@ export function PdfReader({
           // Cancellation is expected when the page, width, or zoom changes.
         }
       }
-      if (
-        cancelled ||
-        runId !== renderRunRef.current ||
-        !canvasRef.current
-      ) {
+      if (cancelled || runId !== renderRunRef.current || !canvasRef.current) {
         return;
       }
       renderTask = pdfPage.render({
@@ -290,9 +284,7 @@ export function PdfReader({
         canvasContext: context,
         viewport,
         transform:
-          pixelRatio === 1
-            ? undefined
-            : [pixelRatio, 0, 0, pixelRatio, 0, 0],
+          pixelRatio === 1 ? undefined : [pixelRatio, 0, 0, pixelRatio, 0, 0],
       });
       activeRenderTaskRef.current = renderTask;
       try {
@@ -312,10 +304,7 @@ export function PdfReader({
           typeof error.name === "string"
             ? error.name
             : "";
-        if (
-          !cancelled &&
-          errorName !== "RenderingCancelledException"
-        ) {
+        if (!cancelled && errorName !== "RenderingCancelledException") {
           setStatus("error");
         }
       } finally {
@@ -364,33 +353,38 @@ export function PdfReader({
   const safePage = Math.min(Math.max(1, page), totalPages || page);
   const displayedRegions = selectionMode
     ? textRegions
-    : [...textRegions.reduce((groups, region) => {
-        const block = blocks.find((item) => item.id === region.blockId);
-        const ownerId = block?.smartTextOwnerId || block?.id || region.blockId;
-        const existing = groups.get(ownerId);
-        if (!existing) {
-          groups.set(ownerId, {
-            ...region,
-            blockId: ownerId,
-            sourceBlockIds: [region.blockId],
-          });
-          return groups;
-        }
-        const right = Math.max(
-          existing.left + existing.width,
-          region.left + region.width,
-        );
-        const bottom = Math.max(
-          existing.top + existing.height,
-          region.top + region.height,
-        );
-        existing.left = Math.min(existing.left, region.left);
-        existing.top = Math.min(existing.top, region.top);
-        existing.width = right - existing.left;
-        existing.height = bottom - existing.top;
-        existing.sourceBlockIds.push(region.blockId);
-        return groups;
-      }, new Map<string, TextRegion>()).values()];
+    : [
+        ...textRegions
+          .reduce((groups, region) => {
+            const block = blocks.find((item) => item.id === region.blockId);
+            const ownerId =
+              block?.smartTextOwnerId || block?.id || region.blockId;
+            const existing = groups.get(ownerId);
+            if (!existing) {
+              groups.set(ownerId, {
+                ...region,
+                blockId: ownerId,
+                sourceBlockIds: [region.blockId],
+              });
+              return groups;
+            }
+            const right = Math.max(
+              existing.left + existing.width,
+              region.left + region.width,
+            );
+            const bottom = Math.max(
+              existing.top + existing.height,
+              region.top + region.height,
+            );
+            existing.left = Math.min(existing.left, region.left);
+            existing.top = Math.min(existing.top, region.top);
+            existing.width = right - existing.left;
+            existing.height = bottom - existing.top;
+            existing.sourceBlockIds.push(region.blockId);
+            return groups;
+          }, new Map<string, TextRegion>())
+          .values(),
+      ];
 
   function turnPage(direction: -1 | 1) {
     const next = Math.min(
@@ -451,9 +445,7 @@ export function PdfReader({
               onChange={(event) => {
                 const next = Number(event.target.value);
                 if (next > 0) {
-                  onPageChange(
-                    totalPages ? Math.min(next, totalPages) : next,
-                  );
+                  onPageChange(totalPages ? Math.min(next, totalPages) : next);
                 }
               }}
             />
@@ -494,10 +486,7 @@ export function PdfReader({
               <button
                 className="pdf-text-bridge"
                 onClick={() =>
-                  onShowText(
-                    safePage,
-                    highlightedBlockId || blocks[0]?.id,
-                  )
+                  onShowText(safePage, highlightedBlockId || blocks[0]?.id)
                 }
               >
                 <TextAlignLeft size={16} />
@@ -532,18 +521,14 @@ export function PdfReader({
 
         <div className="pdf-zoom-controls">
           <button
-            onClick={() =>
-              setZoom((current) => Math.max(0.7, current - 0.1))
-            }
+            onClick={() => setZoom((current) => Math.max(0.7, current - 0.1))}
             aria-label="缩小页面"
           >
             <Minus size={15} />
           </button>
           <span>{Math.round(zoom * 100)}%</span>
           <button
-            onClick={() =>
-              setZoom((current) => Math.min(1.8, current + 0.1))
-            }
+            onClick={() => setZoom((current) => Math.min(1.8, current + 0.1))}
             aria-label="放大页面"
           >
             <Plus size={15} />

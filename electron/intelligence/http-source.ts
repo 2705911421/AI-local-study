@@ -1,19 +1,30 @@
-import { buildTask, parseStructured } from "./prompts.mjs";
+import { buildTask, parseStructured } from "./prompts.js";
+import type {
+  HttpProvider,
+  IntelligenceRequest,
+  IntelligenceResult,
+  JsonSchema,
+  ProviderStatus,
+  RuntimeConfig,
+} from "./types.js";
 
-const trimEndpoint = (value) => value.trim().replace(/\/+$/, "");
-
-function openAiChatUrl(endpoint) {
-  const base = trimEndpoint(endpoint);
-  return /\/chat\/completions$/i.test(base)
-    ? base
-    : `${base}/chat/completions`;
+export interface HttpConfig extends RuntimeConfig {
+  provider: HttpProvider;
 }
 
-function openAiModelsUrl(endpoint) {
+const trimEndpoint = (value: string): string =>
+  value.trim().replace(/\/+$/, "");
+
+function openAiChatUrl(endpoint: string): string {
+  const base = trimEndpoint(endpoint);
+  return /\/chat\/completions$/i.test(base) ? base : `${base}/chat/completions`;
+}
+
+function openAiModelsUrl(endpoint: string): string {
   return `${trimEndpoint(endpoint).replace(/\/chat\/completions$/i, "")}/models`;
 }
 
-function headers(config) {
+function headers(config: HttpConfig): Record<string, string> {
   return {
     "Content-Type": "application/json",
     ...(config.provider === "openai-compatible" && config.apiKey
@@ -22,7 +33,10 @@ function headers(config) {
   };
 }
 
-async function checkedJson(response, label) {
+async function checkedJson(
+  response: Response,
+  label: string,
+): Promise<unknown> {
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     throw new Error(
@@ -32,7 +46,10 @@ async function checkedJson(response, label) {
   return response.json();
 }
 
-export async function listHttpModels(config, signal) {
+export async function listHttpModels(
+  config: HttpConfig,
+  signal: AbortSignal,
+): Promise<string[]> {
   const url =
     config.provider === "ollama"
       ? `${trimEndpoint(config.endpoint)}/api/tags`
@@ -41,16 +58,24 @@ export async function listHttpModels(config, signal) {
     await fetch(url, { headers: headers(config), signal }),
     "无法获取模型列表",
   );
-  const models =
+  const record = asRecord(data);
+  const models = (
     config.provider === "ollama"
-      ? (data.models || []).map((item) => item.name || item.model || "")
-      : (data.data || []).map((item) => item.id || "");
+      ? asArray(record.models).map((item) => {
+          const model = asRecord(item);
+          return stringValue(model.name) || stringValue(model.model);
+        })
+      : asArray(record.data).map((item) => stringValue(asRecord(item).id))
+  ).filter(Boolean);
   return [...new Set(models.filter(Boolean))].sort((a, b) =>
     a.localeCompare(b),
   );
 }
 
-export async function getHttpStatus(config, signal) {
+export async function getHttpStatus(
+  config: HttpConfig,
+  signal: AbortSignal,
+): Promise<ProviderStatus> {
   const label =
     config.provider === "ollama" ? "本机 Ollama" : "OpenAI 兼容服务";
   try {
@@ -66,7 +91,7 @@ export async function getHttpStatus(config, signal) {
     }
     await runHttpText(
       [
-        { role: "system", content: "连接测试，只返回 JSON：{\"text\":\"OK\"}" },
+        { role: "system", content: '连接测试，只返回 JSON：{"text":"OK"}' },
         { role: "user", content: "OK" },
       ],
       { type: "object", properties: { text: { type: "string" } } },
@@ -97,7 +122,11 @@ export async function getHttpStatus(config, signal) {
   }
 }
 
-export async function invokeHttp(request, config, signal) {
+export async function invokeHttp(
+  request: IntelligenceRequest,
+  config: HttpConfig,
+  signal: AbortSignal,
+): Promise<IntelligenceResult> {
   const task = buildTask(request);
   const messages =
     request.task === "explain-image" && config.provider !== "ollama"
@@ -120,7 +149,7 @@ export async function invokeHttp(request, config, signal) {
             ...(request.task === "explain-image"
               ? {
                   images: [
-                    task.imageDataUrl.replace(
+                    (task.imageDataUrl || "").replace(
                       /^data:image\/[a-zA-Z0-9.+-]+;base64,/,
                       "",
                     ),
@@ -139,7 +168,13 @@ export async function invokeHttp(request, config, signal) {
   return parseStructured(text, request.id);
 }
 
-async function runHttpText(messages, schema, config, signal, timeoutMs) {
+async function runHttpText(
+  messages: unknown[],
+  schema: JsonSchema,
+  config: HttpConfig,
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+): Promise<string> {
   const timeout = AbortSignal.timeout(timeoutMs);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   if (config.provider === "ollama") {
@@ -158,8 +193,11 @@ async function runHttpText(messages, schema, config, signal, timeoutMs) {
       }),
       "Ollama 请求失败",
     );
-    if (!data.message?.content) throw new Error("Ollama 没有返回内容");
-    return data.message.content;
+    const message = asRecord(asRecord(data).message);
+    if (typeof message.content !== "string") {
+      throw new Error("Ollama 没有返回内容");
+    }
+    return message.content;
   }
   const data = await checkedJson(
     await fetch(openAiChatUrl(config.endpoint), {
@@ -168,21 +206,40 @@ async function runHttpText(messages, schema, config, signal, timeoutMs) {
       body: JSON.stringify({
         model: config.model,
         temperature: 0,
-        response_format: { type: "json_schema", json_schema: { name: "result", schema } },
+        response_format: {
+          type: "json_schema",
+          json_schema: { name: "result", schema },
+        },
         messages,
       }),
       signal: combined,
     }),
     "外部模型请求失败",
   );
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error("外部模型没有返回内容");
+  const firstChoice = asRecord(asArray(asRecord(data).choices)[0]);
+  const content = asRecord(firstChoice.message).content;
+  if (typeof content !== "string" || !content) {
+    throw new Error("外部模型没有返回内容");
+  }
   return content;
 }
 
-function nameSuggestsVision(model) {
+function nameSuggestsVision(model: string): boolean {
   return /(^|[-_:./])(vision|vl|4o|4\.1|gemini|pixtral|llava|minicpm-v|internvl|glm-4v)([-_:./]|$)/i.test(
     model,
   );
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}

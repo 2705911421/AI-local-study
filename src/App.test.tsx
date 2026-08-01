@@ -49,9 +49,7 @@ describe("知页核心用户流程", () => {
     expect(
       screen.getByRole("dialog", { name: "导入一本教材" }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "关闭导入教材窗口" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "关闭导入教材窗口" }));
     expect(
       screen.queryByRole("dialog", { name: "导入一本教材" }),
     ).not.toBeInTheDocument();
@@ -61,7 +59,7 @@ describe("知页核心用户流程", () => {
     render(<App />);
 
     const result = await axe.run(document.body);
-        expect(
+    expect(
       result.violations.filter(
         (violation) =>
           violation.impact === "serious" || violation.impact === "critical",
@@ -92,16 +90,13 @@ describe("知页核心用户流程", () => {
           name: "笔记",
         }),
       );
-      const editor = screen.getByPlaceholderText(
-        "记录此刻的理解、疑问或待复习内容…",
-      );
+      const editor =
+        screen.getByPlaceholderText("记录此刻的理解、疑问或待复习内容…");
       fireEvent.change(editor, { target: { value: "需要保留的草稿" } });
       fireEvent.click(screen.getByRole("button", { name: "保存笔记" }));
 
       expect(
-        await screen.findAllByText(
-          /笔记保存失败：浏览器存储不可用或空间不足/,
-        ),
+        await screen.findAllByText(/笔记保存失败：浏览器存储不可用或空间不足/),
       ).not.toHaveLength(0);
       expect(editor).toHaveValue("需要保留的草稿");
       expect(screen.queryByText("笔记已保存在本机")).not.toBeInTheDocument();
@@ -359,8 +354,6 @@ describe("知页核心用户流程", () => {
       ],
     });
     await Promise.resolve();
-    expect(
-      screen.queryByText("不应覆盖的教材 A 对话"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("不应覆盖的教材 A 对话")).not.toBeInTheDocument();
   });
 });

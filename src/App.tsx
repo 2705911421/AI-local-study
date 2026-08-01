@@ -48,19 +48,21 @@ import type {
   TextBlock,
   UserPreferences,
 } from "./types";
-import { AppContext, useAppContext, type MobileStudyView, type Overlay, type RightTab, type SearchScope } from "./AppContext";
-import { PdfReader } from "./components/PdfReader";
 import {
-  MobileStudyTabs,
-} from "./components/MobileStudyTabs";
+  AppContext,
+  useAppContext,
+  type MobileStudyView,
+  type Overlay,
+  type RightTab,
+  type SearchScope,
+} from "./AppContext";
+import { PdfReader } from "./components/PdfReader";
+import { MobileStudyTabs } from "./components/MobileStudyTabs";
 import { StatusToast } from "./components/StatusToast";
 import { ImportDialog } from "./components/ImportDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { QuizDialog } from "./components/QuizDialog";
-import {
-  ReviewDialog,
-  type ReviewQueueItem,
-} from "./components/ReviewDialog";
+import { ReviewDialog, type ReviewQueueItem } from "./components/ReviewDialog";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { demoDocument } from "./lib/demo";
 import { IMPORT_LIMITS, rebuildPdfDocument } from "./lib/document";
@@ -353,9 +355,9 @@ function AppInner() {
         note.documentId === activeDocumentIdMemo &&
         note.chapterId === activeChapterIdMemo &&
         (!noteSearch ||
-          note.text.toLocaleLowerCase("zh-CN").includes(
-            noteSearch.toLocaleLowerCase("zh-CN"),
-          )),
+          note.text
+            .toLocaleLowerCase("zh-CN")
+            .includes(noteSearch.toLocaleLowerCase("zh-CN"))),
     );
   }, [notes, activeDocumentIdMemo, activeChapterIdMemo, noteSearch]);
 
@@ -483,13 +485,11 @@ function AppInner() {
           (current?.activeSeconds || 0) + (updates.activeSeconds || 0),
         pagesRead: Math.max(current?.pagesRead || 0, updates.pagesRead || 0),
         questionsAnswered:
-          (current?.questionsAnswered || 0) +
-          (updates.questionsAnswered || 0),
+          (current?.questionsAnswered || 0) + (updates.questionsAnswered || 0),
         correctAnswers:
           (current?.correctAnswers || 0) + (updates.correctAnswers || 0),
         reviewsCompleted:
-          (current?.reviewsCompleted || 0) +
-          (updates.reviewsCompleted || 0),
+          (current?.reviewsCompleted || 0) + (updates.reviewsCompleted || 0),
         updatedAt: Date.now(),
       };
       setDailyMetrics((items) => [
@@ -909,9 +909,7 @@ function AppInner() {
         if (lastDate === today) return;
         const payload = await repository.exportPortableBackup();
         if (cancelled) return;
-        await window.zhiyeDesktop!.writeAutoBackup(
-          await payload.arrayBuffer(),
-        );
+        await window.zhiyeDesktop!.writeAutoBackup(await payload.arrayBuffer());
         if (!cancelled) setNotice("今日自动备份已完成");
       })
       .catch(() => {
@@ -1038,8 +1036,7 @@ function AppInner() {
       if (document.visibilityState !== "visible") return;
       recordDailyMetric({
         activeSeconds: 60,
-        pagesRead:
-          readerMode === "original" ? visiblePdfPage : currentTextPage,
+        pagesRead: readerMode === "original" ? visiblePdfPage : currentTextPage,
       });
     }, 60_000);
     return () => window.clearInterval(timer);
@@ -1094,9 +1091,7 @@ function AppInner() {
             currentIndex: quizIndex,
             draft: quizAnswer,
             scores: quizScores.length ? quizScores : quiz.map(() => null),
-            mastery: quizMastery.length
-              ? quizMastery
-              : quiz.map(() => null),
+            mastery: quizMastery.length ? quizMastery : quiz.map(() => null),
             startedAt: Date.now(),
             updatedAt: Date.now(),
           },
@@ -1148,25 +1143,35 @@ function AppInner() {
       if (closestPage !== currentTextPage) setCurrentTextPage(closestPage);
       if (closestBlock !== currentBlockId) setCurrentBlockId(closestBlock);
     });
-  }, [readerMode, readerRef, currentTextPage, currentBlockId, setCurrentTextPage, setCurrentBlockId]);
+  }, [
+    readerMode,
+    readerRef,
+    currentTextPage,
+    currentBlockId,
+    setCurrentTextPage,
+    setCurrentBlockId,
+  ]);
 
   // ── Backup helpers ──
-  const exportBackup = useCallback(async (passphrase: string) => {
-    try {
-      const blob = await repository.exportBackup(passphrase);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `知页备份-${new Date().toISOString().slice(0, 10)}.zhiye-backup`;
-      link.click();
-      URL.revokeObjectURL(url);
-      setNotice("加密完整备份已导出");
-      return true;
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "备份导出失败");
-      return false;
-    }
-  }, [repository, setNotice]);
+  const exportBackup = useCallback(
+    async (passphrase: string) => {
+      try {
+        const blob = await repository.exportBackup(passphrase);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `知页备份-${new Date().toISOString().slice(0, 10)}.zhiye-backup`;
+        link.click();
+        URL.revokeObjectURL(url);
+        setNotice("加密完整备份已导出");
+        return true;
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "备份导出失败");
+        return false;
+      }
+    },
+    [repository, setNotice],
+  );
 
   const restoreBackup = useCallback(
     async (
@@ -1257,7 +1262,10 @@ function AppInner() {
             aria-label="返回知页首页"
           >
             <span className="brand-mark" aria-hidden="true">
-              <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
+              <img
+                src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`}
+                alt=""
+              />
             </span>
             <span>
               <strong>知页</strong>
@@ -1330,9 +1338,7 @@ function AppInner() {
             </div>
             <button
               className="book-selector"
-              onClick={() =>
-                document.getElementById("library-search")?.focus()
-              }
+              onClick={() => document.getElementById("library-search")?.focus()}
               aria-label="在书库中切换教材"
             >
               <span className="book-spine">
@@ -1395,9 +1401,7 @@ function AppInner() {
                         <PencilSimple size={14} />
                       </button>
                       <button
-                        onClick={() =>
-                          setPendingDeleteDocumentId(document.id)
-                        }
+                        onClick={() => setPendingDeleteDocumentId(document.id)}
                         aria-label={`删除${document.displayTitle || document.title}`}
                       >
                         <Trash size={14} />
@@ -1421,9 +1425,7 @@ function AppInner() {
                   <>
                     {trashedDocuments.map((document) => (
                       <div key={document.id}>
-                        <span>
-                          {document.displayTitle || document.title}
-                        </span>
+                        <span>{document.displayTitle || document.title}</span>
                         <button onClick={() => restoreDocument(document.id)}>
                           恢复
                         </button>
@@ -1433,9 +1435,7 @@ function AppInner() {
                       className="empty-trash"
                       onClick={() => {
                         if (
-                          window.confirm(
-                            "永久删除回收站中的教材和学习记录？",
-                          )
+                          window.confirm("永久删除回收站中的教材和学习记录？")
                         ) {
                           emptyTrash();
                         }
@@ -1487,9 +1487,7 @@ function AppInner() {
                                 ? "section-active"
                                 : ""
                             }
-                            onClick={() =>
-                              selectSection(chapter, section)
-                            }
+                            onClick={() => selectSection(chapter, section)}
                           >
                             <span>{section.title}</span>
                             <small>第 {section.page} 页</small>
@@ -1575,32 +1573,21 @@ function AppInner() {
                       title="使用标题、缩进和行距重新构建可选择的原文段落"
                     >
                       <Sparkle size={15} />
-                      {isRebuildingSegments
-                        ? "正在重建分段…"
-                        : "重建智能分段"}
+                      {isRebuildingSegments ? "正在重建分段…" : "重建智能分段"}
                     </button>
                   )}
                 {activeDocument.kind === "pdf" &&
                   activeDocument.originalFile && (
-                    <div
-                      className="reader-mode-switch"
-                      aria-label="阅读模式"
-                    >
+                    <div className="reader-mode-switch" aria-label="阅读模式">
                       <button
-                        className={
-                          readerMode === "original" ? "active" : ""
-                        }
-                        onClick={() =>
-                          showOriginalPage(currentTextPage)
-                        }
+                        className={readerMode === "original" ? "active" : ""}
+                        onClick={() => showOriginalPage(currentTextPage)}
                       >
                         原版教材
                       </button>
                       <button
                         className={readerMode === "text" ? "active" : ""}
-                        onClick={() =>
-                          showTextForPage(visiblePdfPage)
-                        }
+                        onClick={() => showTextForPage(visiblePdfPage)}
                       >
                         智能文本
                       </button>
@@ -1620,9 +1607,7 @@ function AppInner() {
                       }
                     >
                       <Sparkle size={15} />
-                      {isEnhancing
-                        ? "暂停任务"
-                        : "AI 优化本章"}
+                      {isEnhancing ? "暂停任务" : "AI 优化本章"}
                     </button>
                     <button
                       className={searchOpen ? "active" : ""}
@@ -1631,9 +1616,7 @@ function AppInner() {
                         setSearchOpen((value) => !value);
                         window.setTimeout(
                           () =>
-                            document
-                              .getElementById("chapter-search")
-                              ?.focus(),
+                            document.getElementById("chapter-search")?.focus(),
                           0,
                         );
                       }}
@@ -1685,9 +1668,7 @@ function AppInner() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      goToSearchResult(
-                        searchIndex + (event.shiftKey ? -1 : 1),
-                      );
+                      goToSearchResult(searchIndex + (event.shiftKey ? -1 : 1));
                     }
                     if (event.key === "Escape") {
                       setSearchOpen(false);
@@ -1729,7 +1710,11 @@ function AppInner() {
               </div>
             )}
             {selectionMode && readerMode === "text" && (
-              <div className="segment-editor" role="toolbar" aria-label="分段编辑">
+              <div
+                className="segment-editor"
+                role="toolbar"
+                aria-label="分段编辑"
+              >
                 <span>已选 {selectedBlockIds.length} 段</span>
                 <button onClick={mergeSelectedSegments}>合并</button>
                 <button onClick={splitSelectedSegment}>拆分</button>
@@ -1761,8 +1746,7 @@ function AppInner() {
                 onGenerateSelected={enhanceSelectedBlocks}
                 visionEnabled={modelSupportsVision}
                 isExplainingImage={
-                  isThinking &&
-                  imageExplanationControllerRef.current !== null
+                  isThinking && imageExplanationControllerRef.current !== null
                 }
                 onExplainPageImage={explainCurrentPageImage}
               />
@@ -1812,9 +1796,7 @@ function AppInner() {
                         selectedBlockIds.includes(block.id)
                           ? "is-segment-selected"
                           : ""
-                      } ${
-                        block.blockKind === "table" ? "is-table-block" : ""
-                      }`}
+                      } ${block.blockKind === "table" ? "is-table-block" : ""}`}
                       key={block.id}
                       id={block.id}
                       data-page={block.page}
@@ -1850,10 +1832,7 @@ function AppInner() {
                               className="locator"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                showOriginalPage(
-                                  block.page!,
-                                  block.id,
-                                );
+                                showOriginalPage(block.page!, block.id);
                               }}
                             >
                               <BookOpen size={13} weight="fill" />
@@ -1884,14 +1863,9 @@ function AppInner() {
                             onClick={(event) => {
                               event.stopPropagation();
                               setCurrentBlockId(block.id);
-                              setCurrentTextPage(
-                                block.page || currentTextPage,
-                              );
+                              setCurrentTextPage(block.page || currentTextPage);
                               setNoteQuote(
-                                (block.smartText || block.text).slice(
-                                  0,
-                                  180,
-                                ),
+                                (block.smartText || block.text).slice(0, 180),
                               );
                               setNoteDraft("");
                               setEditingNoteId(null);
@@ -1923,12 +1897,8 @@ function AppInner() {
                 <div className="chapter-end">
                   <CheckCircle size={24} weight="fill" />
                   <div>
-                    <strong>
-                      读到这里，检验一下是否真正理解
-                    </strong>
-                    <span>
-                      练习答案只按照本章教材内容进行评分
-                    </span>
+                    <strong>读到这里，检验一下是否真正理解</strong>
+                    <span>练习答案只按照本章教材内容进行评分</span>
                   </div>
                   <button onClick={openQuiz} aria-label="开始章节练习">
                     开始章节练习
@@ -1959,9 +1929,7 @@ function AppInner() {
               >
                 <NotePencil size={16} />
                 笔记
-                {chapterNotes.length > 0 && (
-                  <span>{chapterNotes.length}</span>
-                )}
+                {chapterNotes.length > 0 && <span>{chapterNotes.length}</span>}
               </button>
             </div>
 
@@ -2009,15 +1977,10 @@ function AppInner() {
                           </button>
                           <button
                             className={
-                              message.feedback === "helpful"
-                                ? "is-active"
-                                : ""
+                              message.feedback === "helpful" ? "is-active" : ""
                             }
                             onClick={() =>
-                              setMessageFeedback(
-                                message.id,
-                                "helpful",
-                              )
+                              setMessageFeedback(message.id, "helpful")
                             }
                             title="有帮助"
                           >
@@ -2030,10 +1993,7 @@ function AppInner() {
                                 : ""
                             }
                             onClick={() =>
-                              setMessageFeedback(
-                                message.id,
-                                "unhelpful",
-                              )
+                              setMessageFeedback(message.id, "unhelpful")
                             }
                             title="没帮助"
                           >
@@ -2061,8 +2021,12 @@ function AppInner() {
                                 }
                               >
                                 <option value="">请选择</option>
-                                <option value="irrelevant">检索内容不相关</option>
-                                <option value="unsupported">缺少教材依据</option>
+                                <option value="irrelevant">
+                                  检索内容不相关
+                                </option>
+                                <option value="unsupported">
+                                  缺少教材依据
+                                </option>
                                 <option value="unclear">表达不清楚</option>
                                 <option value="incomplete">回答不完整</option>
                               </select>
@@ -2141,7 +2105,10 @@ function AppInner() {
                   {noteQuote && (
                     <blockquote className="note-quote">
                       {noteQuote}
-                      <button onClick={() => setNoteQuote("")} aria-label="清除引用">
+                      <button
+                        onClick={() => setNoteQuote("")}
+                        aria-label="清除引用"
+                      >
                         <X size={13} />
                       </button>
                     </blockquote>
@@ -2151,9 +2118,7 @@ function AppInner() {
                     onChange={(event) => setNoteDraft(event.target.value)}
                     placeholder="记录此刻的理解、疑问或待复习内容…"
                   />
-                  {noteError && (
-                    <div className="note-error">{noteError}</div>
-                  )}
+                  {noteError && <div className="note-error">{noteError}</div>}
                   <div className="note-editor-actions">
                     <button
                       className="primary-button"
@@ -2201,9 +2166,7 @@ function AppInner() {
                           <p>{note.text}</p>
                           <footer>
                             <span>
-                              {new Date(note.updatedAt).toLocaleString(
-                                "zh-CN",
-                              )}
+                              {new Date(note.updatedAt).toLocaleString("zh-CN")}
                             </span>
                             <span>
                               <button
@@ -2213,9 +2176,7 @@ function AppInner() {
                                 <PencilSimple size={13} />
                               </button>
                               <button
-                                onClick={() =>
-                                  setPendingDeleteNoteId(note.id)
-                                }
+                                onClick={() => setPendingDeleteNoteId(note.id)}
                                 aria-label="删除笔记"
                               >
                                 <Trash size={13} />
@@ -2228,17 +2189,13 @@ function AppInner() {
                     <div className="empty-notes">
                       <NotePencil size={30} />
                       <strong>还没有章节笔记</strong>
-                      <span>
-                        写下自己的理解，比复制教材更有帮助。
-                      </span>
+                      <span>写下自己的理解，比复制教材更有帮助。</span>
                     </div>
                   )}
                 </div>
                 {chapterHighlights.length > 0 && (
                   <div className="highlight-summary">
-                    <strong>
-                      高亮批注 · {chapterHighlights.length}
-                    </strong>
+                    <strong>高亮批注 · {chapterHighlights.length}</strong>
                     {chapterHighlights.map((highlight) => {
                       const block = activeChapter.blocks.find(
                         (item) => item.id === highlight.blockId,
@@ -2247,16 +2204,11 @@ function AppInner() {
                       return (
                         <button
                           key={highlight.id}
-                          onClick={() =>
-                            openCitation(block.id, block.locator)
-                          }
+                          onClick={() => openCitation(block.id, block.locator)}
                         >
                           <HighlighterCircle size={14} />
                           <span>
-                            {(block.smartText || block.text).slice(
-                              0,
-                              54,
-                            )}
+                            {(block.smartText || block.text).slice(0, 54)}
                           </span>
                         </button>
                       );
@@ -2343,6 +2295,11 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
     fontScale: "medium",
     lineHeight: "comfortable",
     readingWidth: "medium",
+    semanticSearchEnabled: true,
+    batchConcurrency: 2,
+    batchRequestsPerMinute: 30,
+    inputPricePerMillion: 0,
+    outputPricePerMillion: 0,
   });
   const [noteDraft, setNoteDraft] = useState("");
   const [noteQuote, setNoteQuote] = useState("");
@@ -2359,7 +2316,9 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
   const [isTestingModel, setIsTestingModel] = useState(false);
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [modelListState, setModelListState] = useState("");
-  const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]);
+  const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>(
+    [],
+  );
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isRebuildingSegments, setIsRebuildingSegments] = useState(false);
   const [enhanceProgress, setEnhanceProgress] = useState("");
@@ -2441,9 +2400,8 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
     documents.find((document) => document.id === activeDocumentId) ||
     documents[0];
   const activeChapter =
-    activeDocument.chapters.find(
-      (chapter) => chapter.id === activeChapterId,
-    ) || activeDocument.chapters[0];
+    activeDocument.chapters.find((chapter) => chapter.id === activeChapterId) ||
+    activeDocument.chapters[0];
 
   // ── Context value ──
   const contextValue: import("./AppContext").AppContextType = useMemo(

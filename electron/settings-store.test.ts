@@ -2,14 +2,13 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SettingsStore } from "./settings-store.mjs";
+import { SettingsStore } from "./settings-store.js";
 
 const directories = [];
 const safeStorage = {
   isEncryptionAvailable: () => true,
   encryptString: (value) => Buffer.from(`encrypted:${value}`, "utf8"),
-  decryptString: (value) =>
-    value.toString("utf8").replace(/^encrypted:/, ""),
+  decryptString: (value) => value.toString("utf8").replace(/^encrypted:/, ""),
 };
 
 async function createStore() {
@@ -23,9 +22,9 @@ async function createStore() {
 
 afterEach(async () => {
   await Promise.all(
-    directories.splice(0).map((directory) =>
-      rm(directory, { recursive: true, force: true }),
-    ),
+    directories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -128,6 +127,8 @@ describe("SettingsStore", () => {
     const second = await store.publicSettings();
     expect(first.credentialsReset).toBe(true);
     expect(second.credentialsReset).toBe(false);
-    await expect(store.getRuntimeConfig()).resolves.toMatchObject({ apiKey: "" });
+    await expect(store.getRuntimeConfig()).resolves.toMatchObject({
+      apiKey: "",
+    });
   });
 });

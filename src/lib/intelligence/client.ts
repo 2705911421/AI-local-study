@@ -1,5 +1,10 @@
 import type { Citation, TextBlock } from "../../types";
 import {
+  createBlockBatches,
+  runBatchQueue,
+  type BatchGenerationOptions,
+} from "../batchGeneration";
+import {
   askModel as askBrowserModel,
   checkModel as checkBrowserModel,
   detectModelCapabilities as detectBrowserCapabilities,
@@ -63,7 +68,9 @@ async function invokeDesktop<T extends IntelligenceTask>(
 }
 
 function isBrowserProvider(config: IntelligenceConfig): boolean {
-  return config.provider === "ollama" || config.provider === "openai-compatible";
+  return (
+    config.provider === "ollama" || config.provider === "openai-compatible"
+  );
 }
 
 function browserConfig(config: IntelligenceConfig) {
@@ -209,8 +216,13 @@ export async function askModel(
 export async function enhanceTextBlocks(
   blocks: TextBlock[],
   config: IntelligenceConfig,
-  onProgress?: (completed: number, total: number) => void,
+  onProgress?: (
+    completed: number,
+    total: number,
+    partial: ReadonlyMap<string, string>,
+  ) => void,
   signal?: AbortSignal,
+  options?: BatchGenerationOptions,
 ): Promise<Map<string, string>> {
   if (!window.zhiyeDesktop) {
     if (!isBrowserProvider(config)) throw new Error("该来源仅在桌面版可用");
@@ -219,16 +231,31 @@ export async function enhanceTextBlocks(
       browserConfig(config),
       onProgress,
       signal,
+      options,
     );
   }
-  const result = await invokeDesktop(
-    "enhance-blocks",
-    { blocks },
-    config,
-    signal,
+  const batches = createBlockBatches(blocks);
+  const enhanced = new Map<string, string>();
+  let completed = 0;
+  await runBatchQueue(
+    batches.map((batch) => async () => {
+      signal?.throwIfAborted();
+      const result = await invokeDesktop(
+        "enhance-blocks",
+        { blocks: batch },
+        config,
+        signal,
+      );
+      return new Map((result.blocks || []).map((item) => [item.id, item.text]));
+    }),
+    options,
+    (result, index) => {
+      result.forEach((text, id) => enhanced.set(id, text));
+      completed += batches[index].length;
+      onProgress?.(completed, blocks.length, new Map(enhanced));
+    },
   );
-  onProgress?.(1, 1);
-  return new Map((result.blocks || []).map((item) => [item.id, item.text]));
+  return enhanced;
 }
 
 export async function enhanceCombinedTextBlocks(
@@ -312,12 +339,7 @@ export async function explainPageImage(
 ): Promise<string> {
   if (!window.zhiyeDesktop) {
     if (!isBrowserProvider(config)) throw new Error("该来源仅在桌面版可用");
-    return explainBrowserImage(
-      dataUrl,
-      page,
-      browserConfig(config),
-      signal,
-    );
+    return explainBrowserImage(dataUrl, page, browserConfig(config), signal);
   }
   const result = await invokeDesktop(
     "explain-image",

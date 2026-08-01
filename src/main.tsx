@@ -21,9 +21,7 @@ document.title = isStudyWorkspace
   : "知页 · 把问题问到原文里";
 
 function RootApp() {
-  const [showSplash, setShowSplash] = useState(
-    () => isDesktop,
-  );
+  const [showSplash, setShowSplash] = useState(() => isDesktop);
   const completeSplash = useCallback(() => setShowSplash(false), []);
 
   return (

@@ -1,19 +1,77 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import {
-  access,
-  mkdir,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { access, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { Codex } from "@openai/codex-sdk";
-import { query as queryClaude } from "@anthropic-ai/claude-agent-sdk";
+import {
+  Codex,
+  type Input,
+  type ThreadItem,
+  type ThreadOptions,
+} from "@openai/codex-sdk";
+import {
+  query as queryClaude,
+  type Options as ClaudeOptions,
+  type SDKUserMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import extractZip from "extract-zip";
-import { buildTask, parseStructured } from "./prompts.mjs";
+import { buildTask, parseStructured } from "./prompts.js";
+import type {
+  AgentProvider,
+  AgentSource,
+  BuiltTask,
+  IntelligenceRequest,
+  IntelligenceResult,
+  JsonSchema,
+  ProviderStatus,
+  ProviderId,
+  SettingsStoreContract,
+} from "./types.js";
 
 const require = createRequire(import.meta.url);
+
+interface AgentSourceOptions {
+  userData: string;
+  settingsStore: SettingsStoreContract;
+  openExternal: (url: string) => Promise<unknown> | unknown;
+  runtimeAssets: string | null;
+  appVersion?: string;
+}
+
+interface RuntimeDefinition {
+  archive: string;
+  executable: string[];
+}
+
+interface ExtractProviderRuntimeOptions {
+  archive: string;
+  destination: string;
+  executable: string[];
+}
+
+interface InvokeAgentOptions {
+  request: IntelligenceRequest;
+  task: BuiltTask;
+  controller: AbortController;
+  workspace: string;
+}
+
+interface InvokeCodexOptions extends InvokeAgentOptions {
+  codexPath: string;
+  codexHome: string;
+}
+
+interface InvokeClaudeOptions extends InvokeAgentOptions {
+  claudePath: string;
+  token: string;
+}
+
+interface ClaudeOptionsInput {
+  controller: AbortController;
+  workspace: string;
+  schema: JsonSchema;
+  claudePath: string;
+  token: string;
+}
 
 export function createAgentSource({
   userData,
@@ -21,19 +79,15 @@ export function createAgentSource({
   openExternal,
   runtimeAssets,
   appVersion = "development",
-}) {
+}: AgentSourceOptions): AgentSource {
   const runtimeRoot = path.join(userData, "agent-runtime");
-  const providerRuntimeRoot = path.join(
-    runtimeRoot,
-    "providers",
-    appVersion,
-  );
+  const providerRuntimeRoot = path.join(runtimeRoot, "providers", appVersion);
   const codexHome = path.join(userData, "codex-home");
   const workspace = path.join(runtimeRoot, "empty-workspace");
   const images = path.join(runtimeRoot, "images");
-  const runtimePreparations = new Map();
+  const runtimePreparations = new Map<AgentProvider, Promise<string>>();
 
-  async function initialize() {
+  async function initialize(): Promise<void> {
     await Promise.all([
       mkdir(codexHome, { recursive: true }),
       mkdir(workspace, { recursive: true }),
@@ -43,7 +97,7 @@ export function createAgentSource({
     ]);
   }
 
-  async function statuses() {
+  async function statuses(): Promise<ProviderStatus[]> {
     await initialize();
     const codexPath = await cachedProviderPath("codex");
     const [codexLoggedIn, claudeLoggedIn] = await Promise.all([
@@ -76,7 +130,7 @@ export function createAgentSource({
     ];
   }
 
-  async function login(provider) {
+  async function login(provider: ProviderId) {
     await initialize();
     if (provider === "codex") {
       const codexPath = await ensureProviderPath("codex");
@@ -107,7 +161,7 @@ export function createAgentSource({
     return (await statuses()).find((item) => item.provider === provider);
   }
 
-  async function logout(provider) {
+  async function logout(provider: ProviderId) {
     if (provider === "codex") {
       const codexPath = await cachedProviderPath("codex");
       if (codexPath) {
@@ -128,7 +182,10 @@ export function createAgentSource({
     return (await statuses()).find((item) => item.provider === provider);
   }
 
-  async function invoke(request, controller) {
+  async function invoke(
+    request: IntelligenceRequest,
+    controller: AbortController,
+  ): Promise<IntelligenceResult> {
     await initialize();
     const imagePath =
       request.task === "explain-image"
@@ -170,11 +227,13 @@ export function createAgentSource({
     }
   }
 
-  async function cleanup() {
+  async function cleanup(): Promise<void> {
     await rm(images, { recursive: true, force: true });
   }
 
-  async function cachedProviderPath(provider) {
+  async function cachedProviderPath(
+    provider: AgentProvider,
+  ): Promise<string | null> {
     if (!runtimeAssets) return developmentProviderPath(provider);
     const executable = packagedProviderPath(provider);
     try {
@@ -185,13 +244,12 @@ export function createAgentSource({
     }
   }
 
-  async function ensureProviderPath(provider) {
+  async function ensureProviderPath(provider: AgentProvider): Promise<string> {
     if (!runtimeAssets) return developmentProviderPath(provider);
     const cached = await cachedProviderPath(provider);
     if (cached) return cached;
-    if (runtimePreparations.has(provider)) {
-      return runtimePreparations.get(provider);
-    }
+    const existingPreparation = runtimePreparations.get(provider);
+    if (existingPreparation) return existingPreparation;
     const preparation = prepareProviderRuntime(provider).finally(() => {
       runtimePreparations.delete(provider);
     });
@@ -199,7 +257,10 @@ export function createAgentSource({
     return preparation;
   }
 
-  async function prepareProviderRuntime(provider) {
+  async function prepareProviderRuntime(
+    provider: AgentProvider,
+  ): Promise<string> {
+    if (!runtimeAssets) throw new Error("桌面智能体运行时资源不可用");
     const definition = runtimeDefinition(provider);
     const destination = path.join(providerRuntimeRoot, provider);
     const archive = path.join(runtimeAssets, definition.archive);
@@ -217,22 +278,16 @@ export function createAgentSource({
     }
   }
 
-  function packagedProviderPath(provider) {
+  function packagedProviderPath(provider: AgentProvider): string {
     const definition = runtimeDefinition(provider);
-    return path.join(
-      providerRuntimeRoot,
-      provider,
-      ...definition.executable,
-    );
+    return path.join(providerRuntimeRoot, provider, ...definition.executable);
   }
 
-  function developmentProviderPath(provider) {
+  function developmentProviderPath(provider: AgentProvider): string {
     if (provider === "codex") {
       return unpackedPath(
         path.join(
-          path.dirname(
-            require.resolve("@openai/codex-win32-x64/package.json"),
-          ),
+          path.dirname(require.resolve("@openai/codex-win32-x64/package.json")),
           "vendor",
           "x86_64-pc-windows-msvc",
           "bin",
@@ -243,9 +298,7 @@ export function createAgentSource({
     return unpackedPath(
       path.join(
         path.dirname(
-          require.resolve(
-            "@anthropic-ai/claude-agent-sdk-win32-x64/package.json",
-          ),
+          require.resolve("@anthropic-ai/claude-agent-sdk-win32-x64/package.json"),
         ),
         "claude.exe",
       ),
@@ -259,7 +312,7 @@ export async function extractProviderRuntime({
   archive,
   destination,
   executable,
-}) {
+}: ExtractProviderRuntimeOptions): Promise<string> {
   const staging = `${destination}.preparing-${process.pid}`;
   await rm(staging, { recursive: true, force: true });
   await mkdir(path.dirname(destination), { recursive: true });
@@ -271,28 +324,23 @@ export async function extractProviderRuntime({
     await rename(staging, destination);
     return path.join(destination, ...executable);
   } catch (error) {
-    await rm(staging, { recursive: true, force: true }).catch(
-      () => undefined,
-    );
+    await rm(staging, { recursive: true, force: true }).catch(() => undefined);
     throw error;
   }
 }
 
-export async function getClaudeCredential(settingsStore) {
+export async function getClaudeCredential(
+  settingsStore: SettingsStoreContract,
+): Promise<string> {
   const config = await settingsStore.getRuntimeConfig({ provider: "claude" });
   return config.claudeToken || config.apiKey;
 }
 
-function runtimeDefinition(provider) {
+function runtimeDefinition(provider: AgentProvider): RuntimeDefinition {
   if (provider === "codex") {
     return {
       archive: "codex-win32-x64.zip",
-      executable: [
-        "vendor",
-        "x86_64-pc-windows-msvc",
-        "bin",
-        "codex.exe",
-      ],
+      executable: ["vendor", "x86_64-pc-windows-msvc", "bin", "codex.exe"],
     };
   }
   if (provider === "claude") {
@@ -311,7 +359,7 @@ async function invokeCodex({
   codexPath,
   codexHome,
   workspace,
-}) {
+}: InvokeCodexOptions): Promise<IntelligenceResult> {
   if (!(await codexStatus(codexPath, codexHome))) {
     throw new Error("Codex 尚未在知页中登录");
   }
@@ -324,7 +372,7 @@ async function invokeCodex({
     },
   });
   const thread = codex.startThread(codexThreadOptions(workspace));
-  const input = task.imagePath
+  const input: Input = task.imagePath
     ? [
         { type: "text", text: task.prompt },
         { type: "local_image", path: task.imagePath },
@@ -345,7 +393,7 @@ async function invokeClaude({
   claudePath,
   workspace,
   token,
-}) {
+}: InvokeClaudeOptions): Promise<IntelligenceResult> {
   const prompt = task.imageDataUrl
     ? imagePrompt(task.prompt, task.imageDataUrl)
     : task.prompt;
@@ -367,13 +415,10 @@ async function invokeClaude({
       result?.errors?.join("；") || "Claude 没有完成本次教材任务",
     );
   }
-  return parseStructured(
-    result.structured_output ?? result.result,
-    request.id,
-  );
+  return parseStructured(result.structured_output ?? result.result, request.id);
 }
 
-export function codexThreadOptions(workspace) {
+export function codexThreadOptions(workspace: string): ThreadOptions {
   return {
     sandboxMode: "read-only",
     workingDirectory: workspace,
@@ -384,11 +429,14 @@ export function codexThreadOptions(workspace) {
   };
 }
 
-export function assertNoForbiddenCodexItems(items) {
+export function assertNoForbiddenCodexItems(items: ThreadItem[]): void {
   const forbidden = items.find((item) =>
-    ["command_execution", "file_change", "mcp_tool_call", "web_search"].includes(
-      item.type,
-    ),
+    [
+      "command_execution",
+      "file_change",
+      "mcp_tool_call",
+      "web_search",
+    ].includes(item.type),
   );
   if (forbidden) {
     throw new Error("Codex 尝试使用被知页禁止的工具，本次结果已丢弃");
@@ -401,7 +449,7 @@ export function claudeOptions({
   schema,
   claudePath,
   token,
-}) {
+}: ClaudeOptionsInput): ClaudeOptions {
   return {
     abortController: controller,
     cwd: workspace,
@@ -432,7 +480,10 @@ export function claudeOptions({
   };
 }
 
-async function* imagePrompt(prompt, dataUrl) {
+async function* imagePrompt(
+  prompt: string,
+  dataUrl: string,
+): AsyncGenerator<SDKUserMessage> {
   const match = dataUrl.match(
     /^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/,
   );
@@ -455,21 +506,33 @@ async function* imagePrompt(prompt, dataUrl) {
     },
     parent_tool_use_id: null,
     session_id: crypto.randomUUID(),
-  };
+  } as SDKUserMessage;
 }
 
-async function saveImage(directory, id, dataUrl) {
+async function saveImage(
+  directory: string,
+  id: string,
+  dataUrl: string,
+): Promise<string> {
   const match = dataUrl.match(
     /^data:image\/([a-zA-Z0-9.+-]+);base64,([\s\S]+)$/,
   );
   if (!match) throw new Error("页面图像格式不正确");
-  const extension = match[1].includes("png") ? "png" : "jpg";
+  const imageSubtype = match[1];
+  const encodedImage = match[2];
+  if (!imageSubtype || !encodedImage) {
+    throw new Error("页面图像格式不正确");
+  }
+  const extension = imageSubtype.includes("png") ? "png" : "jpg";
   const file = path.join(directory, `${safeId(id)}.${extension}`);
-  await writeFile(file, Buffer.from(match[2], "base64"));
+  await writeFile(file, Buffer.from(encodedImage, "base64"));
   return file;
 }
 
-async function codexStatus(codexPath, codexHome) {
+async function codexStatus(
+  codexPath: string,
+  codexHome: string,
+): Promise<boolean> {
   try {
     await runProcess(
       codexPath,
@@ -483,11 +546,11 @@ async function codexStatus(codexPath, codexHome) {
   }
 }
 
-function codexEnvironment(codexHome) {
+function codexEnvironment(codexHome: string): Record<string, string> {
   return { ...baseEnvironment(), CODEX_HOME: codexHome };
 }
 
-function baseEnvironment() {
+function baseEnvironment(): Record<string, string> {
   const allowed = [
     "ALLUSERSPROFILE",
     "APPDATA",
@@ -517,29 +580,40 @@ function baseEnvironment() {
     "USERPROFILE",
     "windir",
   ];
-  return Object.fromEntries(
-    allowed
-      .filter((key) => typeof process.env[key] === "string")
-      .map((key) => [key, process.env[key]]),
-  );
+  return allowed.reduce<Record<string, string>>((environment, key) => {
+    const value = process.env[key];
+    if (value) environment[key] = value;
+    return environment;
+  }, {});
 }
 
-function runLoginProcess(executable, args, env, openExternal) {
+function runLoginProcess(
+  executable: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  openExternal: (url: string) => Promise<unknown> | unknown,
+): Promise<string> {
   return runProcess(executable, args, env, 5 * 60_000, (chunk) => {
     const urls = chunk.match(/https?:\/\/[^\s<>"']+/g) || [];
     urls.forEach((url) => void openExternal(url.replace(/[),.;]+$/, "")));
   });
 }
 
-function runProcess(executable, args, env, timeoutMs, onOutput) {
-  return new Promise((resolve, reject) => {
+function runProcess(
+  executable: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  timeoutMs: number,
+  onOutput?: (output: string) => void,
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
     const child = spawn(executable, args, {
       env,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
-    const accept = (chunk) => {
+    const accept = (chunk: Buffer) => {
       const text = chunk.toString();
       output += text;
       onOutput?.(text);
@@ -562,7 +636,7 @@ function runProcess(executable, args, env, timeoutMs, onOutput) {
   });
 }
 
-function safeProcessError(output, code) {
+function safeProcessError(output: string, code: number | null): string {
   const cleaned = output
     .replace(/sk-[A-Za-z0-9_-]{10,}/g, "[已隐藏凭据]")
     .trim()
@@ -570,10 +644,15 @@ function safeProcessError(output, code) {
   return cleaned || `智能体登录进程退出（${code ?? "unknown"}）`;
 }
 
-function safeId(value) {
-  return String(value).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+function safeId(value: string): string {
+  return String(value)
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 80);
 }
 
-function unpackedPath(value) {
-  return value.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
+function unpackedPath(value: string): string {
+  return value.replace(
+    `${path.sep}app.asar${path.sep}`,
+    `${path.sep}app.asar.unpacked${path.sep}`,
+  );
 }

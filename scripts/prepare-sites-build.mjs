@@ -1,10 +1,4 @@
-import {
-  copyFile,
-  mkdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
 const clientIndexUrl = new URL("../dist/client/index.html", import.meta.url);
 const workerTemplateUrl = new URL("../sites/worker.mjs", import.meta.url);

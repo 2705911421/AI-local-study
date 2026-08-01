@@ -8,7 +8,12 @@ import type {
   StudyNote,
   TextBlock,
 } from "../types";
-import { useAppContext, type MobileStudyView, type Overlay, type RightTab } from "../AppContext";
+import {
+  useAppContext,
+  type MobileStudyView,
+  type Overlay,
+  type RightTab,
+} from "../AppContext";
 import { demoDocument } from "../lib/demo";
 import {
   createQuiz,
@@ -35,6 +40,7 @@ import {
   saveDesktopSettings,
   type LlmConfig,
 } from "../lib/intelligence/client";
+import { estimateGeneration } from "../lib/batchGeneration";
 import { importPipeline } from "../lib/importPipeline";
 import { rebuildPdfDocument } from "../lib/document";
 import type { StudyCommand, WorkspaceSnapshot } from "../lib/studyRepository";
@@ -250,8 +256,7 @@ export function useDocumentManager() {
   const selectChapter = useCallback(
     (chapter: Chapter) => {
       cancelScopedWork();
-      const startPage =
-        chapter.blocks.find((block) => block.page)?.page || 1;
+      const startPage = chapter.blocks.find((block) => block.page)?.page || 1;
       ctx.readerRef.current?.scrollTo({ top: 0, behavior: "auto" });
       setActiveChapterId(chapter.id);
       setPdfFocusPage(startPage);
@@ -429,6 +434,7 @@ export function useChat() {
                 documents.filter((document) => document.kind !== "demo"),
                 activeChapter.id,
                 3,
+                ctx.preferences.semanticSearchEnabled !== false,
               )
             : retrieve(
                 question,
@@ -437,6 +443,7 @@ export function useChat() {
                   ? [activeChapter]
                   : activeDocument.chapters,
                 3,
+                ctx.preferences.semanticSearchEnabled !== false,
               );
         if (
           citations.length === 0 &&
@@ -784,7 +791,14 @@ export function useQuiz(quiz: QuizItem[]) {
       setOverlay(null);
       ctx.setNotice("章节练习已完成，结果已保存");
     }
-  }, [ctx, quiz, activeDocument.id, activeChapter.id, persistCommand, setOverlay]);
+  }, [
+    ctx,
+    quiz,
+    activeDocument.id,
+    activeChapter.id,
+    persistCommand,
+    setOverlay,
+  ]);
 
   const setCurrentMastery = useCallback(
     async (value: "mastered" | "review") => {
@@ -812,9 +826,7 @@ export function useQuiz(quiz: QuizItem[]) {
         ctx.setReviewSchedules(workspace.reviewSchedules);
       }
       ctx.setQuizMastery((current) =>
-        current.map((item, index) =>
-          index === ctx.quizIndex ? value : item,
-        ),
+        current.map((item, index) => (index === ctx.quizIndex ? value : item)),
       );
     },
     [ctx, quiz, activeDocument.id, activeChapter.id, persistCommand],
@@ -938,9 +950,7 @@ export function useModelConfig() {
       if (config.provider !== "codex" && config.provider !== "claude") return;
       ctx.setIsTestingModel(true);
       ctx.setModelListState(
-        action === "login"
-          ? "请在浏览器中完成官方登录…"
-          : "正在退出登录…",
+        action === "login" ? "请在浏览器中完成官方登录…" : "正在退出登录…",
       );
       try {
         const status =
@@ -1120,27 +1130,52 @@ export function useEnhancement() {
         ctx.setEnhanceError("请先选择需要生成智能文本的原文");
         return;
       }
-      const estimatedInputTokens = Math.ceil(
-        targetBlocks.reduce(
-          (total, block) => total + (block.smartText || block.text).length,
-          0,
-        ) / 1.8,
+      const jobId = `${activeDocument.id}:${activeChapter.id}:enhance`;
+      const workspace = await ctx.repository.loadWorkspace();
+      const previousJob = workspace.enhancementJobs.find(
+        (job) => job.id === jobId && job.status !== "completed",
       );
-      const estimatedOutputTokens = Math.ceil(estimatedInputTokens * 0.8);
+      const completedBeforeStart = targetBlocks
+        .filter((block) => Boolean(block.smartText?.trim()))
+        .map((block) => block.id);
+      const pendingBlocks = targetBlocks.filter(
+        (block) => !completedBeforeStart.includes(block.id),
+      );
+      if (!pendingBlocks.length) {
+        ctx.setEnhanceProgress("所选原文已全部生成智能文本");
+        return 0;
+      }
+      const { estimatedInputTokens, estimatedOutputTokens, estimatedCost } =
+        estimateGeneration(
+          pendingBlocks,
+          ctx.preferences.inputPricePerMillion,
+          ctx.preferences.outputPricePerMillion,
+        );
+      const pricingConfigured =
+        config.provider === "ollama" ||
+        Boolean(
+          ctx.preferences.inputPricePerMillion ||
+          ctx.preferences.outputPricePerMillion,
+        );
+      const resumeMessage = previousJob
+        ? `\n将从上次进度继续，剩余 ${pendingBlocks.length} / ${targetBlocks.length} 段。`
+        : "";
+      const costMessage = pricingConfigured
+        ? `预计费用约 ¥${estimatedCost.toFixed(4)}。`
+        : "尚未配置 Token 单价，无法换算费用。";
       if (
         !window.confirm(
-          `预计输入约 ${estimatedInputTokens.toLocaleString()} Token，输出约 ${estimatedOutputTokens.toLocaleString()} Token。\n\n是否开始？`,
+          `预计输入约 ${estimatedInputTokens.toLocaleString()} Token，输出约 ${estimatedOutputTokens.toLocaleString()} Token；${costMessage}${resumeMessage}\n\n是否开始？`,
         )
       ) {
         return;
       }
-      const jobId = `${activeDocument.id}:${activeChapter.id}:enhance`;
       const baseJob = {
         id: jobId,
         documentId: activeDocument.id,
         chapterId: activeChapter.id,
         blockIds: targetBlocks.map((block) => block.id),
-        completedBlockIds: [] as string[],
+        completedBlockIds: completedBeforeStart,
         failedBlockIds: [] as string[],
         status: "running" as const,
         estimatedInputTokens,
@@ -1159,22 +1194,47 @@ export function useEnhancement() {
       ctx.setEnhanceProgress("正在准备教材原文…");
       try {
         const enhanced = await enhanceTextBlocks(
-          targetBlocks,
+          pendingBlocks,
           config,
-          (completed, total) => {
-            ctx.setEnhanceProgress(`正在整理 ${completed} / ${total} 组原文`);
+          (completed, total, partial) => {
+            ctx.setEnhanceProgress(`正在整理 ${completed} / ${total} 段原文`);
+            const partialDocument: StudyDocument = {
+              ...activeDocument,
+              updatedAt: Date.now(),
+              chapters: activeDocument.chapters.map((chapter) => ({
+                ...chapter,
+                blocks: chapter.blocks.map((block) => ({
+                  ...block,
+                  smartText: partial.get(block.id) || block.smartText,
+                })),
+              })),
+            };
+            setDocuments((current) =>
+              current.map((document) =>
+                document.id === partialDocument.id ? partialDocument : document,
+              ),
+            );
+            void ctx.repository.apply({
+              type: "saveDocument",
+              document: partialDocument,
+            });
             void ctx.repository.apply({
               type: "saveEnhancementJob",
               job: {
                 ...baseJob,
-                completedBlockIds: targetBlocks
-                  .slice(0, completed)
-                  .map((block) => block.id),
+                completedBlockIds: [
+                  ...new Set([...completedBeforeStart, ...partial.keys()]),
+                ],
                 updatedAt: Date.now(),
               },
             });
           },
           controller.signal,
+          {
+            concurrency: ctx.preferences.batchConcurrency,
+            requestsPerMinute: ctx.preferences.batchRequestsPerMinute,
+            retries: 2,
+          },
         );
         if (controller.signal.aborted) return;
         if (!enhanced.size) {
@@ -1182,6 +1242,7 @@ export function useEnhancement() {
         }
         const updatedDocument: StudyDocument = {
           ...activeDocument,
+          updatedAt: Date.now(),
           chapters: activeDocument.chapters.map((chapter) => ({
             ...chapter,
             blocks: chapter.blocks.map((block) => ({
@@ -1227,7 +1288,7 @@ export function useEnhancement() {
           job: {
             ...baseJob,
             status: "failed",
-            failedBlockIds: targetBlocks.map((block) => block.id),
+            failedBlockIds: pendingBlocks.map((block) => block.id),
             error: error instanceof Error ? error.message : "智能文本生成失败",
             updatedAt: Date.now(),
           },
@@ -1382,9 +1443,7 @@ export function useEnhancement() {
       const rebuilt = await rebuildPdfDocument(activeDocument);
       const targetChapter =
         rebuilt.chapters.find((chapter) =>
-          chapter.blocks.some(
-            (block) => block.page === ctx.currentTextPage,
-          ),
+          chapter.blocks.some((block) => block.page === ctx.currentTextPage),
         ) ||
         rebuilt.chapters.find(
           (chapter) => chapter.title === activeChapter.title,
@@ -1410,9 +1469,7 @@ export function useEnhancement() {
       ctx.setSelectedBlockIds([]);
       ctx.setSelectionMode(false);
       ctx.setHighlightedBlockId(null);
-      ctx.setNotice(
-        "智能分段已重建：标题、缩进段落和编号层级将分别选择",
-      );
+      ctx.setNotice("智能分段已重建：标题、缩进段落和编号层级将分别选择");
     } catch (error) {
       ctx.setNotice(
         error instanceof Error ? error.message : "智能分段重建失败",
@@ -1420,13 +1477,7 @@ export function useEnhancement() {
     } finally {
       ctx.setIsRebuildingSegments(false);
     }
-  }, [
-    ctx,
-    activeDocument,
-    activeChapter,
-    setDocuments,
-    setHighlights,
-  ]);
+  }, [ctx, activeDocument, activeChapter, setDocuments, setHighlights]);
 
   const explainCurrentPageImage = useCallback(
     async (page: number, dataUrl: string) => {
@@ -1599,10 +1650,7 @@ export function useReaderNav({
 
   const openCitation = useCallback(
     (blockId: string, locator: string) => {
-      if (
-        activeDocument.kind === "pdf" &&
-        activeDocument.originalFile
-      ) {
+      if (activeDocument.kind === "pdf" && activeDocument.originalFile) {
         const page = Number(locator.match(/第\s*(\d+)\s*页/)?.[1]);
         if (page) {
           showOriginalPage(page, blockId);
@@ -1669,8 +1717,7 @@ export function useReaderNav({
   const goToSearchResult = useCallback(
     (index: number) => {
       if (!searchResults.length) return;
-      const nextIndex =
-        (index + searchResults.length) % searchResults.length;
+      const nextIndex = (index + searchResults.length) % searchResults.length;
       ctx.setSearchIndex(nextIndex);
       const block = searchResults[nextIndex];
       ctx.setCurrentBlockId(block.id);

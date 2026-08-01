@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import worker from "../sites/worker.mjs";
 
-const indexHtml = "<!doctype html><html><body><div id=\"root\"></div></body></html>";
+const indexHtml =
+  '<!doctype html><html><body><div id="root"></div></body></html>';
 
 function createAssetsBinding() {
   return {
@@ -59,10 +60,7 @@ test("网站导航路由返回 SPA 文档和安全响应头", async () => {
 
 test("静态资源保留正确类型且缺失资源不会回退成 HTML", async () => {
   const env = { ASSETS: createAssetsBinding() };
-  const script = await worker.fetch(
-    request("/assets/app.js", "script"),
-    env,
-  );
+  const script = await worker.fetch(request("/assets/app.js", "script"), env);
   assert.equal(script.status, 200);
   assert.match(script.headers.get("Content-Type") || "", /javascript/);
 
@@ -71,8 +69,5 @@ test("静态资源保留正确类型且缺失资源不会回退成 HTML", async 
     env,
   );
   assert.equal(missing.status, 404);
-  assert.doesNotMatch(
-    missing.headers.get("Content-Type") || "",
-    /text\/html/,
-  );
+  assert.doesNotMatch(missing.headers.get("Content-Type") || "", /text\/html/);
 });

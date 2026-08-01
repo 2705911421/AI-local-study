@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTask, parseStructured } from "./prompts.mjs";
+import { buildTask, parseStructured } from "./prompts.js";
 
 describe("desktop intelligence task contract", () => {
   it("limits block output IDs to the supplied textbook blocks", () => {

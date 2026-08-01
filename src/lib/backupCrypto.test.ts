@@ -24,7 +24,10 @@ describe("encrypted backup format", () => {
   });
 
   it("returns the same safe error for a wrong password or tampering", async () => {
-    const encrypted = await encryptBackupPayload(new Blob([plaintext]), password);
+    const encrypted = await encryptBackupPayload(
+      new Blob([plaintext]),
+      password,
+    );
     await expect(
       decryptBackupPayload(encrypted, "this password is definitely wrong"),
     ).rejects.toThrow("备份密码错误或文件已损坏");
@@ -37,9 +40,9 @@ describe("encrypted backup format", () => {
 
     const damagedMagic = new Uint8Array(await encrypted.arrayBuffer());
     damagedMagic[0] ^= 1;
-    await expect(
-      inspectBackupFormat(new Blob([damagedMagic])),
-    ).rejects.toThrow("备份密码错误或文件已损坏");
+    await expect(inspectBackupFormat(new Blob([damagedMagic]))).rejects.toThrow(
+      "备份密码错误或文件已损坏",
+    );
   });
 
   it("recognizes legacy zip payloads without treating them as encrypted", async () => {

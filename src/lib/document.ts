@@ -27,7 +27,10 @@ export function validateImportFile(file: Pick<File, "name" | "size">): void {
 }
 
 function cleanText(value: string): string {
-  return value.replace(/\s+/g, " ").replace(/\u0000/g, "").trim();
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/\u0000/g, "")
+    .trim();
 }
 
 function splitIntoBlocks(
@@ -119,6 +122,7 @@ interface PositionedPdfItem {
   x: number;
   y: number;
   height: number;
+  width: number;
   sourceIndex: number;
 }
 
@@ -128,6 +132,8 @@ interface PdfLine {
   y: number;
   height: number;
   items: PositionedPdfItem[];
+  table?: boolean;
+  column?: number;
 }
 
 function isStructuralHeading(line: PdfLine, medianHeight: number): boolean {
@@ -143,8 +149,7 @@ function isStructuralHeading(line: PdfLine, medianHeight: number): boolean {
 function joinPdfLines(left: string, right: string): string {
   if (!left) return right;
   if (!right) return left;
-  const needsSpace =
-    /[A-Za-z0-9)]$/.test(left) && /^[A-Za-z0-9(]/.test(right);
+  const needsSpace = /[A-Za-z0-9)]$/.test(left) && /^[A-Za-z0-9(]/.test(right);
   return `${left}${needsSpace ? " " : ""}${right}`;
 }
 
@@ -160,16 +165,55 @@ function semanticPdfBlocks(
     line.push(item);
     lineGroups.set(key, line);
   });
-  const lines: PdfLine[] = [...lineGroups.values()]
-    .map((items) => {
+  let lines: PdfLine[] = [...lineGroups.values()]
+    .flatMap((items) => {
       const sorted = [...items].sort((a, b) => a.x - b.x);
-      return {
-        text: cleanText(sorted.map((item) => item.text).join("")),
-        x: Math.min(...sorted.map((item) => item.x)),
-        y: sorted.reduce((sum, item) => sum + item.y, 0) / sorted.length,
-        height: Math.max(...sorted.map((item) => item.height)),
-        items: sorted,
-      };
+      const cells: PositionedPdfItem[][] = [];
+      let cell: PositionedPdfItem[] = [];
+      sorted.forEach((item, index) => {
+        const previous = sorted[index - 1];
+        const previousEnd = previous
+          ? previous.x +
+            Math.max(
+              previous.width,
+              previous.text.length * previous.height * 0.45,
+            )
+          : 0;
+        if (
+          previous &&
+          item.x - previousEnd > Math.max(28, item.height * 3.2)
+        ) {
+          cells.push(cell);
+          cell = [];
+        }
+        cell.push(item);
+      });
+      if (cell.length) cells.push(cell);
+      const y = sorted.reduce((sum, item) => sum + item.y, 0) / sorted.length;
+      const height = Math.max(...sorted.map((item) => item.height));
+      if (cells.length >= 3) {
+        return [
+          {
+            text: cells
+              .map((group) =>
+                cleanText(group.map((item) => item.text).join("")),
+              )
+              .join(" | "),
+            x: sorted[0].x,
+            y,
+            height,
+            items: sorted,
+            table: true,
+          },
+        ];
+      }
+      return cells.map((group) => ({
+        text: cleanText(group.map((item) => item.text).join("")),
+        x: Math.min(...group.map((item) => item.x)),
+        y,
+        height,
+        items: group,
+      }));
     })
     .filter(
       (line) =>
@@ -185,8 +229,42 @@ function semanticPdfBlocks(
           )
         ),
     )
-    .sort((a, b) => b.y - a.y);
+    .sort((a, b) => b.y - a.y || a.x - b.x);
   if (!lines.length) return [];
+
+  const startPositions = [
+    ...new Set(
+      lines.filter((line) => !line.table).map((line) => Math.round(line.x)),
+    ),
+  ].sort((a, b) => a - b);
+  let columnSplit: number | null = null;
+  let largestStartGap = 0;
+  for (let index = 1; index < startPositions.length; index += 1) {
+    const gap = startPositions[index] - startPositions[index - 1];
+    if (gap > largestStartGap) {
+      largestStartGap = gap;
+      columnSplit = (startPositions[index] + startPositions[index - 1]) / 2;
+    }
+  }
+  if (largestStartGap < 90) columnSplit = null;
+  if (columnSplit !== null) {
+    const leftCount = lines.filter(
+      (line) => !line.table && line.x < columnSplit!,
+    ).length;
+    const rightCount = lines.filter(
+      (line) => !line.table && line.x >= columnSplit!,
+    ).length;
+    if (leftCount < 2 || rightCount < 2) columnSplit = null;
+  }
+  lines = lines
+    .map((line) => ({
+      ...line,
+      column:
+        columnSplit === null || line.table ? 0 : line.x < columnSplit ? 0 : 1,
+    }))
+    .sort(
+      (a, b) => (a.column || 0) - (b.column || 0) || b.y - a.y || a.x - b.x,
+    );
 
   const substantialLines = lines.filter((line) => line.text.length > 8);
   const leftValues = substantialLines
@@ -214,21 +292,31 @@ function semanticPdfBlocks(
 
   lines.forEach((line, index) => {
     const previous = lines[index - 1];
+    if (line.table) {
+      flush();
+      current.push(line);
+      flush();
+      return;
+    }
+    const changedColumn = Boolean(previous) && previous.column !== line.column;
     const heading = isStructuralHeading(line, medianHeight);
     const currentOnlyHeading =
       current.length === 1 && isStructuralHeading(current[0], medianHeight);
     const startsIndentedParagraph =
       line.x >= baseLeft + 8 &&
       Boolean(current.length) &&
+      !changedColumn &&
       !currentOnlyHeading &&
       !heading;
     const hasLargeGap =
       Boolean(previous) &&
       previous.y - line.y > medianGap * 1.38 &&
       Boolean(current.length) &&
-      !currentOnlyHeading;
+      !currentOnlyHeading &&
+      !changedColumn;
 
-    if (heading || startsIndentedParagraph || hasLargeGap) flush();
+    if (changedColumn || heading || startsIndentedParagraph || hasLargeGap)
+      flush();
     current.push(line);
   });
   flush();
@@ -241,20 +329,21 @@ function semanticPdfBlocks(
       return {
         id: `${chapterId}-p${pageNumber}-b${index}`,
         chapterId,
-        text: group.reduce(
-          (text, line) => joinPdfLines(text, line.text),
-          "",
-        ),
+        text: group.reduce((text, line) => joinPdfLines(text, line.text), ""),
         page: pageNumber,
         sourceItemStart: Math.min(...sourceIndexes),
         sourceItemEnd: Math.max(...sourceIndexes) + 1,
         locator: `PDF 第 ${pageNumber} 页`,
+        blockKind: group.some((line) => line.table) ? "table" : "paragraph",
       };
     })
     .filter((block) => block.text.length > 8);
 }
 
-async function parsePdf(file: File, documentId: string): Promise<StudyDocument> {
+async function parsePdf(
+  file: File,
+  documentId: string,
+): Promise<StudyDocument> {
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
     "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -273,139 +362,140 @@ async function parsePdf(file: File, documentId: string): Promise<StudyDocument> 
     if (pdf.numPages > IMPORT_LIMITS.pdfPages) {
       throw new Error(`PDF 页数不能超过 ${IMPORT_LIMITS.pdfPages} 页`);
     }
-  const chapters: Chapter[] = [];
-  let active: Chapter = {
-    id: `${documentId}:pdf-c1`,
-    title: "教材前置内容",
-    order: 0,
-    blocks: [],
-  };
-  chapters.push(active);
+    const chapters: Chapter[] = [];
+    let active: Chapter = {
+      id: `${documentId}:pdf-c1`,
+      title: "教材前置内容",
+      order: 0,
+      blocks: [],
+    };
+    chapters.push(active);
 
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const positionedItems = content.items
-      .filter(
-        (
-          item,
-        ): item is (typeof content.items)[number] & {
-          str: string;
-          transform: number[];
-          height: number;
-        } =>
-          "str" in item &&
-          "transform" in item &&
-          "height" in item &&
-          Boolean(item.str.trim()),
-      )
-      .map((item, sourceIndex) => ({
-        text: cleanText(item.str),
-        x: item.transform[4],
-        y: item.transform[5],
-        height: item.height,
-        sourceIndex,
-      }));
-    const text = cleanText(
-      content.items
-        .map((item) => ("str" in item ? item.str : ""))
-        .join(" "),
-    );
-    if (!text) continue;
-
-    const chapterMarkerIndex = positionedItems.findIndex(
-      (item) =>
-        item.y > 700 &&
-        (item.height < 10 || item.height > 16) &&
-        /^第[一二三四五六七八九十百0-9]+章$/.test(
-          item.text.replace(/\s/g, ""),
-        ),
-    );
-    let detectedChapter = "";
-    if (chapterMarkerIndex >= 0) {
-      const marker = positionedItems[chapterMarkerIndex];
-      const title = positionedItems
-        .slice(chapterMarkerIndex + 1)
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const positionedItems = content.items
         .filter(
-          (item) =>
-            Math.abs(item.y - marker.y) < 3 &&
-            !/^\d+$/.test(item.text) &&
-            item.text !== "本章数字资源",
+          (
+            item,
+          ): item is (typeof content.items)[number] & {
+            str: string;
+            transform: number[];
+            height: number;
+            width: number;
+          } =>
+            "str" in item &&
+            "transform" in item &&
+            "height" in item &&
+            "width" in item &&
+            Boolean(item.str.trim()),
         )
-        .map((item) => item.text)
-        .join("")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (title && title.length <= 34) {
-        detectedChapter = `${marker.text.replace(/\s/g, "")} ${title}`;
-      }
-    }
+        .map((item, sourceIndex) => ({
+          text: cleanText(item.str),
+          x: item.transform[4],
+          y: item.transform[5],
+          height: item.height,
+          width: item.width,
+          sourceIndex,
+        }));
+      const text = cleanText(
+        content.items.map((item) => ("str" in item ? item.str : "")).join(" "),
+      );
+      if (!text) continue;
 
-    if (
-      detectedChapter &&
-      detectedChapter !== active.title &&
-      active.blocks.length > 0
-    ) {
-      active = {
-        id: `${documentId}:pdf-c${chapters.length + 1}`,
-        title: detectedChapter,
-        order: chapters.length,
-        sections: [],
-        blocks: [],
-      };
-      chapters.push(active);
-    }
-
-    if (active.title !== "教材前置内容") {
-      const lines = new Map<number, typeof positionedItems>();
-      positionedItems.forEach((item) => {
-        const lineKey = Math.round(item.y * 2) / 2;
-        const line = lines.get(lineKey) || [];
-        line.push(item);
-        lines.set(lineKey, line);
-      });
-      [...lines.values()].forEach((lineItems) => {
-        const lineText = lineItems
-          .sort((a, b) => a.x - b.x)
+      const chapterMarkerIndex = positionedItems.findIndex(
+        (item) =>
+          item.y > 700 &&
+          (item.height < 10 || item.height > 16) &&
+          /^第[一二三四五六七八九十百0-9]+章$/.test(
+            item.text.replace(/\s/g, ""),
+          ),
+      );
+      let detectedChapter = "";
+      if (chapterMarkerIndex >= 0) {
+        const marker = positionedItems[chapterMarkerIndex];
+        const title = positionedItems
+          .slice(chapterMarkerIndex + 1)
+          .filter(
+            (item) =>
+              Math.abs(item.y - marker.y) < 3 &&
+              !/^\d+$/.test(item.text) &&
+              item.text !== "本章数字资源",
+          )
           .map((item) => item.text)
           .join("")
           .replace(/\s+/g, " ")
           .trim();
-        const sectionMatch = lineText.match(
-          /^(第[一二三四五六七八九十百0-9]+节)\s*[|｜]?\s*(.{2,42})$/,
-        );
-        if (!sectionMatch) return;
-        const title = `${sectionMatch[1]} ${sectionMatch[2]}`
-          .replace(/\.{3,}.*$/, "")
-          .replace(/\s+/g, " ")
-          .trim();
-        if (
-          title.length > 48 ||
-          active.sections?.some(
-            (section) => section.title === title,
-          )
-        ) {
-          return;
+        if (title && title.length <= 34) {
+          detectedChapter = `${marker.text.replace(/\s/g, "")} ${title}`;
         }
-        active.sections = [
-          ...(active.sections || []),
-          {
-            id: `${active.id}-s${(active.sections?.length || 0) + 1}`,
-            title,
-            page: pageNumber,
-          },
-        ];
-      });
+      }
+
+      if (
+        detectedChapter &&
+        detectedChapter !== active.title &&
+        active.blocks.length > 0
+      ) {
+        active = {
+          id: `${documentId}:pdf-c${chapters.length + 1}`,
+          title: detectedChapter,
+          order: chapters.length,
+          sections: [],
+          blocks: [],
+        };
+        chapters.push(active);
+      }
+
+      if (active.title !== "教材前置内容") {
+        const lines = new Map<number, typeof positionedItems>();
+        positionedItems.forEach((item) => {
+          const lineKey = Math.round(item.y * 2) / 2;
+          const line = lines.get(lineKey) || [];
+          line.push(item);
+          lines.set(lineKey, line);
+        });
+        [...lines.values()].forEach((lineItems) => {
+          const lineText = lineItems
+            .sort((a, b) => a.x - b.x)
+            .map((item) => item.text)
+            .join("")
+            .replace(/\s+/g, " ")
+            .trim();
+          const sectionMatch = lineText.match(
+            /^(第[一二三四五六七八九十百0-9]+节)\s*[|｜]?\s*(.{2,42})$/,
+          );
+          if (!sectionMatch) return;
+          const title = `${sectionMatch[1]} ${sectionMatch[2]}`
+            .replace(/\.{3,}.*$/, "")
+            .replace(/\s+/g, " ")
+            .trim();
+          if (
+            title.length > 48 ||
+            active.sections?.some((section) => section.title === title)
+          ) {
+            return;
+          }
+          active.sections = [
+            ...(active.sections || []),
+            {
+              id: `${active.id}-s${(active.sections?.length || 0) + 1}`,
+              title,
+              page: pageNumber,
+            },
+          ];
+        });
+      }
+
+      active.blocks.push(
+        ...semanticPdfBlocks(positionedItems, active.id, pageNumber),
+      );
     }
 
-    active.blocks.push(
-      ...semanticPdfBlocks(positionedItems, active.id, pageNumber),
-    );
-  }
-
-  if (!chapters.some((chapter) => chapter.blocks.length)) {
-    throw new Error("未能从 PDF 中提取文字。这可能是扫描版教材，当前版本尚未启用 OCR。");
-  }
+    if (!chapters.some((chapter) => chapter.blocks.length)) {
+      throw new Error(
+        "未能从 PDF 中提取文字。这可能是扫描版教材，当前版本尚未启用 OCR。",
+      );
+    }
 
     const createdAt = Date.now();
     return {
@@ -426,7 +516,10 @@ async function parsePdf(file: File, documentId: string): Promise<StudyDocument> 
   }
 }
 
-async function parseEpub(file: File, documentId: string): Promise<StudyDocument> {
+async function parseEpub(
+  file: File,
+  documentId: string,
+): Promise<StudyDocument> {
   const { default: JSZip } = await import("jszip");
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   let declaredUncompressedBytes = 0;
@@ -473,9 +566,7 @@ async function parseEpub(file: File, documentId: string): Promise<StudyDocument>
   const chapters: Chapter[] = [];
   const spineItems = [...opfDoc.querySelectorAll("spine itemref")];
   if (spineItems.length > IMPORT_LIMITS.epubSpineItems) {
-    throw new Error(
-      `EPUB 章节清单不能超过 ${IMPORT_LIMITS.epubSpineItems} 项`,
-    );
+    throw new Error(`EPUB 章节清单不能超过 ${IMPORT_LIMITS.epubSpineItems} 项`);
   }
   let extractedCharacters = 0;
 

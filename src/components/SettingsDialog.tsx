@@ -12,10 +12,7 @@ import type {
   DesktopAutoBackupSettings,
   DesktopUpdateStatus,
 } from "../lib/intelligence/types";
-import {
-  isDesktopApp,
-  type LlmProvider,
-} from "../lib/intelligence/client";
+import { isDesktopApp, type LlmProvider } from "../lib/intelligence/client";
 import {
   inspectBackupFormat,
   validateBackupPassphrase,
@@ -67,8 +64,9 @@ export function SettingsDialog({
   const [backupError, setBackupError] = useState("");
   const [backupBusy, setBackupBusy] = useState(false);
   const [restoreMode, setRestoreMode] = useState<"replace" | "merge">("merge");
-  const [updateStatus, setUpdateStatus] =
-    useState<DesktopUpdateStatus | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<DesktopUpdateStatus | null>(
+    null,
+  );
   const [autoBackup, setAutoBackup] =
     useState<DesktopAutoBackupSettings | null>(null);
 
@@ -259,6 +257,94 @@ export function SettingsDialog({
                 </select>
               </label>
             </fieldset>
+            <fieldset className="reading-preferences">
+              <legend>智能检索与批量生成</legend>
+              <label>
+                <span>本地语义检索</span>
+                <input
+                  type="checkbox"
+                  checked={preferences.semanticSearchEnabled !== false}
+                  onChange={(event) =>
+                    onSavePreferences({
+                      ...preferences,
+                      semanticSearchEnabled: event.target.checked,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                并发请求数
+                <input
+                  type="number"
+                  min={1}
+                  max={4}
+                  value={preferences.batchConcurrency ?? 2}
+                  onChange={(event) =>
+                    onSavePreferences({
+                      ...preferences,
+                      batchConcurrency: Math.max(
+                        1,
+                        Math.min(4, Number(event.target.value) || 1),
+                      ),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                每分钟请求上限
+                <input
+                  type="number"
+                  min={1}
+                  max={600}
+                  value={preferences.batchRequestsPerMinute ?? 30}
+                  onChange={(event) =>
+                    onSavePreferences({
+                      ...preferences,
+                      batchRequestsPerMinute: Math.max(
+                        1,
+                        Math.min(600, Number(event.target.value) || 1),
+                      ),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                输入单价（¥ / 百万 Token）
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={preferences.inputPricePerMillion ?? 0}
+                  onChange={(event) =>
+                    onSavePreferences({
+                      ...preferences,
+                      inputPricePerMillion: Math.max(
+                        0,
+                        Number(event.target.value) || 0,
+                      ),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                输出单价（¥ / 百万 Token）
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={preferences.outputPricePerMillion ?? 0}
+                  onChange={(event) =>
+                    onSavePreferences({
+                      ...preferences,
+                      outputPricePerMillion: Math.max(
+                        0,
+                        Number(event.target.value) || 0,
+                      ),
+                    })
+                  }
+                />
+              </label>
+            </fieldset>
             <section className="backup-security" aria-labelledby="backup-title">
               <h3 id="backup-title">加密完整备份</h3>
               <p>
@@ -296,7 +382,7 @@ export function SettingsDialog({
                   onClick={() => void exportEncryptedBackup()}
                   disabled={backupBusy}
                 >
-                <DownloadSimple size={15} />
+                  <DownloadSimple size={15} />
                   导出加密备份
                 </button>
                 {isDesktopApp() && (
@@ -401,7 +487,10 @@ export function SettingsDialog({
               )}
             </section>
             {isDesktopApp() && updateStatus && (
-              <section className="update-settings" aria-labelledby="update-title">
+              <section
+                className="update-settings"
+                aria-labelledby="update-title"
+              >
                 <h3 id="update-title">应用更新</h3>
                 <p>
                   {updateStatus.message ||
@@ -468,9 +557,7 @@ export function SettingsDialog({
                 {isDesktopApp() && <option value="codex">Codex</option>}
                 {isDesktopApp() && <option value="claude">Claude</option>}
                 <option value="ollama">本机 Ollama</option>
-                <option value="openai-compatible">
-                  OpenAI 兼容服务
-                </option>
+                <option value="openai-compatible">OpenAI 兼容服务</option>
               </select>
             </label>
             {(config.provider === "ollama" ||
@@ -567,14 +654,12 @@ export function SettingsDialog({
                 </button>
               )}
             {isDesktopApp() &&
-              (config.provider === "codex" ||
-                config.provider === "claude") && (
+              (config.provider === "codex" || config.provider === "claude") && (
                 <div className="agent-login-actions">
                   <span>
                     {selectedProviderStatus?.availability === "ready"
                       ? `${selectedProviderStatus.label} 账号已连接`
-                      : selectedProviderStatus?.detail ||
-                        "账号尚未连接"}
+                      : selectedProviderStatus?.detail || "账号尚未连接"}
                   </span>
                   <button
                     className="secondary-button"
@@ -599,8 +684,8 @@ export function SettingsDialog({
                 {isDesktopApp()
                   ? "账号与 API Key 由 Windows 安全凭据存储加密；renderer、学习备份和日志均不包含凭据。"
                   : "服务地址和模型名称保存在当前浏览器中；API Key 仅保留在本次页面会话。"}
-                使用智能来源时，当前任务所需的教材原文会发送给所选来源；图示讲解还会发送当前 PDF
-                页面图像。知页不会在失败后静默发送给其他提供商。
+                使用智能来源时，当前任务所需的教材原文会发送给所选来源；图示讲解还会发送当前
+                PDF 页面图像。知页不会在失败后静默发送给其他提供商。
               </span>
             </div>
             <div

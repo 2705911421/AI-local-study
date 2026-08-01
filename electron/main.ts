@@ -8,18 +8,21 @@ import {
   safeStorage,
   shell,
 } from "electron";
-import { createAgentSource } from "./intelligence/agent-source.mjs";
-import { IntelligenceRuntime } from "./intelligence/runtime.mjs";
-import { createSafeLogger } from "./safe-log.mjs";
-import { SettingsStore } from "./settings-store.mjs";
+import { createAgentSource } from "./intelligence/agent-source.js";
+import { IntelligenceRuntime } from "./intelligence/runtime.js";
+import { createSafeLogger } from "./safe-log.js";
+import { SettingsStore, type SaveSettingsInput } from "./settings-store.js";
 import updaterPackage from "electron-updater";
-import { UpdateService } from "./update-service.mjs";
-import { BackupService } from "./backup-service.mjs";
+import { UpdateService } from "./update-service.js";
+import { BackupService, type BackupConfiguration } from "./backup-service.js";
+import type {
+  IntelligenceRequest,
+  ProviderId,
+  RendererConfig,
+} from "./intelligence/types.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-let runtime;
-let updateService;
-let backupService;
+let runtime: IntelligenceRuntime | undefined;
 
 app.setName("知页");
 if (process.env.ZHIYE_TEST_USER_DATA) {
@@ -32,7 +35,7 @@ app.whenReady().then(async () => {
   const agentSource = createAgentSource({
     userData,
     settingsStore,
-    openExternal: (url) => shell.openExternal(url),
+    openExternal: (url: string) => shell.openExternal(url),
     runtimeAssets: app.isPackaged
       ? path.join(process.resourcesPath, "runtimes")
       : null,
@@ -43,17 +46,17 @@ app.whenReady().then(async () => {
     settingsStore,
     log: createSafeLogger(userData),
   });
-  updateService = new UpdateService({
+  const updates = new UpdateService({
     updater: updaterPackage.autoUpdater,
     feedUrl: process.env.ZHIYE_UPDATE_URL,
     packaged: app.isPackaged,
   });
-  backupService = new BackupService({ userData, safeStorage });
+  const backups = new BackupService({ userData, safeStorage });
   await runtime.initialize();
-  registerHandlers(runtime, settingsStore, updateService, backupService);
+  registerHandlers(runtime, settingsStore, updates, backups);
   createWindow();
-  if (updateService.enabled) {
-    setTimeout(() => void updateService.check(), 5_000);
+  if (updates.enabled) {
+    setTimeout(() => void updates.check(), 5_000);
   }
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -68,7 +71,7 @@ app.on("before-quit", () => {
   void runtime?.cleanup();
 });
 
-function createWindow() {
+function createWindow(): void {
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -102,49 +105,74 @@ function createWindow() {
   }
 }
 
-function registerHandlers(intelligence, settingsStore, updates, backups) {
-  const handle = (channel, handler) => {
+function registerHandlers(
+  intelligence: IntelligenceRuntime,
+  settingsStore: SettingsStore,
+  updates: UpdateService,
+  backups: BackupService,
+): void {
+  const handle = <Payload = undefined>(
+    channel: string,
+    handler: (payload: Payload) => unknown,
+  ) => {
     ipcMain.removeHandler(channel);
-    ipcMain.handle(channel, (_event, payload) => handler(payload));
+    ipcMain.handle(channel, (_event, payload: Payload) => handler(payload));
   };
   handle("intelligence:get-settings", () => settingsStore.publicSettings());
-  handle("intelligence:save-settings", (settings) =>
+  handle<SaveSettingsInput>("intelligence:save-settings", (settings) =>
     settingsStore.save(settings || {}),
   );
-  handle("intelligence:clear-api-key", (provider) =>
+  handle<ProviderId>("intelligence:clear-api-key", (provider) =>
     settingsStore.clearApiKey(provider),
   );
-  handle("intelligence:get-statuses", (config) =>
+  handle<RendererConfig>("intelligence:get-statuses", (config) =>
     intelligence.statuses(config || {}),
   );
-  handle("intelligence:login", (provider) => intelligence.login(provider));
-  handle("intelligence:logout", (provider) => intelligence.logout(provider));
-  handle("intelligence:list-models", (config) =>
+  handle<ProviderId>("intelligence:login", (provider) =>
+    intelligence.login(provider),
+  );
+  handle<ProviderId>("intelligence:logout", (provider) =>
+    intelligence.logout(provider),
+  );
+  handle<RendererConfig>("intelligence:list-models", (config) =>
     intelligence.listModels(config || {}),
   );
-  handle("intelligence:invoke", (request) => intelligence.invoke(request));
-  handle("intelligence:cancel", (requestId) => intelligence.cancel(requestId));
+  handle<IntelligenceRequest>("intelligence:invoke", (request) =>
+    intelligence.invoke(request),
+  );
+  handle<string>("intelligence:cancel", (requestId) =>
+    intelligence.cancel(requestId),
+  );
   handle("updates:get-status", () => updates.status());
   handle("updates:check", () => updates.check());
   handle("updates:install", () => updates.install());
   handle("backup:get-settings", () => backups.settings());
-  handle("backup:choose-directory", async (payload) => {
-    const selection = await dialog.showOpenDialog({
-      properties: ["openDirectory", "createDirectory"],
-      title: "选择知页自动备份目录",
-    });
-    if (selection.canceled || !selection.filePaths[0]) return backups.settings();
-    return backups.configure({
-      directory: selection.filePaths[0],
-      passphrase: payload?.passphrase,
-      enabled: true,
-    });
-  });
+  handle<{ passphrase?: string }>(
+    "backup:choose-directory",
+    async (payload) => {
+      const selection = await dialog.showOpenDialog({
+        properties: ["openDirectory", "createDirectory"],
+        title: "选择知页自动备份目录",
+      });
+      if (selection.canceled || !selection.filePaths[0])
+        return backups.settings();
+      return backups.configure({
+        directory: selection.filePaths[0],
+        passphrase: payload?.passphrase || "",
+        enabled: true,
+      });
+    },
+  );
   handle("backup:disable", async () => {
     const current = await backups.settings();
-    return backups.configure({ ...current, enabled: false, passphrase: "" });
+    const next: BackupConfiguration = {
+      directory: current.directory,
+      enabled: false,
+      passphrase: "",
+    };
+    return backups.configure(next);
   });
-  handle("backup:write", (payload) =>
+  handle<ArrayBuffer>("backup:write", (payload) =>
     backups.writePortableBackup(new Uint8Array(payload)),
   );
 }

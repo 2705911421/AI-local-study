@@ -28,7 +28,9 @@ export class AppErrorBoundary extends Component<
       `时间：${new Date().toISOString()}`,
       `浏览器：${navigator.userAgent}`,
       "",
-      this.state.details || this.state.error?.stack || this.state.error?.message,
+      this.state.details ||
+        this.state.error?.stack ||
+        this.state.error?.message,
     ].join("\n");
     const url = URL.createObjectURL(
       new Blob([content], { type: "text/plain;charset=utf-8" }),

@@ -17,6 +17,8 @@ export interface TextBlock {
   sourceItemEnd?: number;
   locator: string;
   blockKind?: "paragraph" | "table";
+  virtualPage?: number;
+  progressPercent?: number;
 }
 
 export interface Section {
@@ -186,6 +188,10 @@ export interface UserPreferences {
   lineHeight: "compact" | "comfortable" | "relaxed";
   readingWidth: "narrow" | "medium" | "wide";
   semanticSearchEnabled?: boolean;
+  batchConcurrency?: number;
+  batchRequestsPerMinute?: number;
+  inputPricePerMillion?: number;
+  outputPricePerMillion?: number;
 }
 
 export interface ImportCheckpoint {

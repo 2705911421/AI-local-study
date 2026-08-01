@@ -1,7 +1,50 @@
 import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type {
+  ProviderId,
+  RendererConfig,
+  RuntimeConfig,
+} from "./intelligence/types.js";
 
-const defaults = {
+interface SettingsStoreOptions {
+  userData: string;
+  safeStorage: Electron.SafeStorage;
+}
+
+interface StoredSettings {
+  provider: ProviderId;
+  endpoint: string;
+  model: string;
+  firstRunComplete: boolean;
+}
+
+export interface SaveSettingsInput extends RendererConfig {
+  apiKey?: unknown;
+  clearApiKey?: unknown;
+  firstRunComplete?: unknown;
+}
+
+interface EncryptedEndpointSecret {
+  endpoint: string;
+  value: string;
+}
+
+interface StoredSecrets {
+  version?: number;
+  apiKey?: unknown;
+  claudeToken?: string;
+  providerKeys?: {
+    claude?: string;
+    "openai-compatible"?: EncryptedEndpointSecret;
+  };
+}
+
+export interface PublicSettings extends StoredSettings {
+  hasApiKeyByProvider: Partial<Record<ProviderId, boolean>>;
+  credentialsReset: boolean;
+}
+
+const defaults: StoredSettings = {
   provider: "ollama",
   endpoint: "http://localhost:11434",
   model: "qwen3:4b",
@@ -9,18 +52,22 @@ const defaults = {
 };
 
 export class SettingsStore {
-  constructor({ userData, safeStorage }) {
+  private readonly safeStorage: Electron.SafeStorage;
+  private readonly settingsPath: string;
+  private readonly secretsPath: string;
+  private legacyCredentialCleared = false;
+
+  constructor({ userData, safeStorage }: SettingsStoreOptions) {
     this.safeStorage = safeStorage;
     this.settingsPath = path.join(userData, "intelligence-settings.json");
     this.secretsPath = path.join(userData, "intelligence-secrets.json");
-    this.legacyCredentialCleared = false;
   }
 
-  async read() {
+  async read(): Promise<StoredSettings> {
     return { ...defaults, ...(await readJson(this.settingsPath, {})) };
   }
 
-  async publicSettings() {
+  async publicSettings(): Promise<PublicSettings> {
     const settings = await this.read();
     const secrets = await this.readSecrets();
     const openAiKey = secrets.providerKeys?.["openai-compatible"];
@@ -32,14 +79,14 @@ export class SettingsStore {
         claude: Boolean(secrets.providerKeys?.claude),
         "openai-compatible": Boolean(
           openAiKey &&
-            openAiKey.endpoint === normalizeEndpoint(settings.endpoint),
+          openAiKey.endpoint === normalizeEndpoint(settings.endpoint),
         ),
       },
       credentialsReset,
     };
   }
 
-  async save(next) {
+  async save(next: SaveSettingsInput): Promise<PublicSettings> {
     const current = await this.read();
     const secrets = await this.readSecrets();
     const settings = {
@@ -74,18 +121,23 @@ export class SettingsStore {
     return this.publicSettings();
   }
 
-  async clearApiKey(provider) {
+  async clearApiKey(provider: ProviderId): Promise<PublicSettings> {
     if (!["claude", "openai-compatible"].includes(provider)) {
       throw new Error("该来源没有可清除的 API Key");
     }
     const secrets = await this.readSecrets();
     const providerKeys = { ...(secrets.providerKeys || {}) };
-    delete providerKeys[provider];
+    if (provider === "claude") delete providerKeys.claude;
+    if (provider === "openai-compatible") {
+      delete providerKeys["openai-compatible"];
+    }
     await this.writeSecrets({ ...secrets, version: 2, providerKeys });
     return this.publicSettings();
   }
 
-  async getRuntimeConfig(rendererConfig = {}) {
+  async getRuntimeConfig(
+    rendererConfig: RendererConfig = {},
+  ): Promise<RuntimeConfig> {
     const settings = await this.read();
     const secrets = await this.readSecrets();
     const provider = validProvider(rendererConfig.provider)
@@ -111,7 +163,7 @@ export class SettingsStore {
     };
   }
 
-  async hasProviderCredential(provider) {
+  async hasProviderCredential(provider: ProviderId): Promise<boolean> {
     const secrets = await this.readSecrets();
     if (provider === "claude") {
       return Boolean(secrets.claudeToken || secrets.providerKeys?.claude);
@@ -126,7 +178,7 @@ export class SettingsStore {
     return false;
   }
 
-  async setClaudeToken(token) {
+  async setClaudeToken(token: string): Promise<void> {
     const secrets = await this.readSecrets();
     await this.writeSecrets({
       ...secrets,
@@ -135,7 +187,7 @@ export class SettingsStore {
     });
   }
 
-  async clearClaudeCredentials() {
+  async clearClaudeCredentials(): Promise<void> {
     const secrets = await this.readSecrets();
     const providerKeys = { ...(secrets.providerKeys || {}) };
     delete providerKeys.claude;
@@ -143,8 +195,8 @@ export class SettingsStore {
     await this.writeSecrets({ ...secrets, version: 2, providerKeys });
   }
 
-  async readSecrets() {
-    const raw = await readJson(this.secretsPath, {});
+  private async readSecrets(): Promise<StoredSecrets> {
+    const raw = await readJson<StoredSecrets>(this.secretsPath, {});
     if ("apiKey" in raw) {
       delete raw.apiKey;
       raw.version = 2;
@@ -155,7 +207,7 @@ export class SettingsStore {
     return raw;
   }
 
-  async writeSecrets(secrets) {
+  private async writeSecrets(secrets: StoredSecrets): Promise<void> {
     const empty =
       !secrets.claudeToken &&
       Object.keys(secrets.providerKeys || {}).length === 0;
@@ -166,7 +218,7 @@ export class SettingsStore {
     await writeFile(this.secretsPath, JSON.stringify(secrets), "utf8");
   }
 
-  encrypt(value) {
+  private encrypt(value: string): string {
     if (!value) return "";
     if (!this.safeStorage.isEncryptionAvailable()) {
       throw new Error("Windows 安全凭据存储当前不可用");
@@ -174,7 +226,7 @@ export class SettingsStore {
     return this.safeStorage.encryptString(value).toString("base64");
   }
 
-  decrypt(value) {
+  private decrypt(value?: string): string {
     if (!value) return "";
     try {
       return this.safeStorage.decryptString(Buffer.from(value, "base64"));
@@ -184,20 +236,25 @@ export class SettingsStore {
   }
 }
 
-async function readJson(file, fallback) {
+async function readJson<T>(file: string, fallback: T): Promise<T> {
   try {
-    return JSON.parse(await readFile(file, "utf8"));
+    return JSON.parse(await readFile(file, "utf8")) as T;
   } catch {
     return fallback;
   }
 }
 
-function validProvider(value) {
-  return ["codex", "claude", "ollama", "openai-compatible"].includes(value);
+function validProvider(value: unknown): value is ProviderId {
+  return (
+    typeof value === "string" &&
+    ["codex", "claude", "ollama", "openai-compatible"].includes(value)
+  );
 }
 
-export function normalizeEndpoint(value) {
-  const trimmed = String(value || "").trim().replace(/\/+$/, "");
+export function normalizeEndpoint(value: unknown): string {
+  const trimmed = String(value || "")
+    .trim()
+    .replace(/\/+$/, "");
   try {
     const url = new URL(trimmed);
     url.protocol = url.protocol.toLowerCase();

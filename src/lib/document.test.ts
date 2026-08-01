@@ -1,26 +1,28 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import JSZip from "jszip";
-import {
-  IMPORT_LIMITS,
-  parseDocument,
-  validateImportFile,
-} from "./document";
+import { IMPORT_LIMITS, parseDocument, validateImportFile } from "./document";
 
 describe("validateImportFile", () => {
   it("accepts supported files within their limits", () => {
     expect(() =>
-      validateImportFile({ name: "textbook.PDF", size: IMPORT_LIMITS.pdfBytes }),
+      validateImportFile({
+        name: "textbook.PDF",
+        size: IMPORT_LIMITS.pdfBytes,
+      }),
     ).not.toThrow();
     expect(() =>
-      validateImportFile({ name: "textbook.epub", size: IMPORT_LIMITS.epubBytes }),
+      validateImportFile({
+        name: "textbook.epub",
+        size: IMPORT_LIMITS.epubBytes,
+      }),
     ).not.toThrow();
   });
 
   it("rejects unsupported and oversized files", () => {
-    expect(() =>
-      validateImportFile({ name: "notes.txt", size: 20 }),
-    ).toThrow("仅支持 PDF 和 EPUB");
+    expect(() => validateImportFile({ name: "notes.txt", size: 20 })).toThrow(
+      "仅支持 PDF 和 EPUB",
+    );
     expect(() =>
       validateImportFile({
         name: "huge.pdf",
@@ -112,8 +114,8 @@ describe("EPUB paragraph locators", () => {
 
     expect(blocks.length).toBeGreaterThan(1);
     expect(blocks.every((block) => block.text.length <= 520)).toBe(true);
-    expect(blocks.every((block) => block.locator === "路径章节 · EPUB 段落 1")).toBe(
-      true,
-    );
+    expect(
+      blocks.every((block) => block.locator === "路径章节 · EPUB 段落 1"),
+    ).toBe(true);
   });
 });

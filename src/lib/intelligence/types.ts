@@ -1,10 +1,6 @@
 import type { Citation, QuizItem, TextBlock } from "../../types";
 
-export type ProviderId =
-  | "codex"
-  | "claude"
-  | "ollama"
-  | "openai-compatible";
+export type ProviderId = "codex" | "claude" | "ollama" | "openai-compatible";
 
 export type IntelligenceTask =
   | "answer"
@@ -28,10 +24,7 @@ export interface ProviderCapabilities {
 }
 
 export type ProviderAvailability =
-  | "ready"
-  | "not-authenticated"
-  | "unavailable"
-  | "error";
+  "ready" | "not-authenticated" | "unavailable" | "error";
 
 export interface ProviderStatus {
   provider: ProviderId;
@@ -81,7 +74,9 @@ export interface IntelligencePayloadMap {
   "explain-image": ExplainImagePayload;
 }
 
-export interface IntelligenceRequest<T extends IntelligenceTask = IntelligenceTask> {
+export interface IntelligenceRequest<
+  T extends IntelligenceTask = IntelligenceTask,
+> {
   id: string;
   provider: ProviderId;
   task: T;
@@ -128,7 +123,9 @@ export interface DesktopIntelligenceBridge {
   clearApiKey(
     provider: "claude" | "openai-compatible",
   ): Promise<DesktopSavedSettings>;
-  getStatuses(config?: Omit<IntelligenceConfig, "apiKey">): Promise<ProviderStatus[]>;
+  getStatuses(
+    config?: Omit<IntelligenceConfig, "apiKey">,
+  ): Promise<ProviderStatus[]>;
   login(provider: "codex" | "claude"): Promise<ProviderStatus>;
   logout(provider: "codex" | "claude"): Promise<ProviderStatus>;
   listModels(config: Omit<IntelligenceConfig, "apiKey">): Promise<string[]>;

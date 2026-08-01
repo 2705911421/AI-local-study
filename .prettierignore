@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dist-electron/
+coverage/
+release/
+artifacts/
+output/
+test-results/
+.playwright-cli/
+.playwright-mcp/
+.wrangler/
+.reasonix/
+.tmp-preview/
+package-lock.json
+public/release/

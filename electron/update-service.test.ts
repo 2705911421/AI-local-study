@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { normalizeUpdateUrl, UpdateService } from "./update-service.mjs";
+import { normalizeUpdateUrl, UpdateService } from "./update-service.js";
 
 describe("UpdateService", () => {
   it("只接受 HTTPS 更新源", () => {

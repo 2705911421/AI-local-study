@@ -43,8 +43,12 @@ test("发布页首屏在支持的视口内完整显示", async ({ page }) => {
       );
 
     expect(overflow, `${viewport.width}px 首屏存在水平越界`).toEqual([]);
-    await expect(page.getByRole("link", { name: "打开在线体验" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "查看 Windows 版" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "打开在线体验" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "查看 Windows 版" }),
+    ).toBeVisible();
   }
 });
 

@@ -1,4 +1,9 @@
 import type { Citation, QuizItem, TextBlock } from "../types";
+import {
+  createBlockBatches,
+  runBatchQueue,
+  type BatchGenerationOptions,
+} from "./batchGeneration";
 
 export type LlmProvider = "ollama" | "openai-compatible";
 
@@ -37,7 +42,9 @@ async function fetchWithTimeout(
     timeoutMs,
   );
   const abortFromCaller = () =>
-    controller.abort(init.signal?.reason || new DOMException("请求已取消", "AbortError"));
+    controller.abort(
+      init.signal?.reason || new DOMException("请求已取消", "AbortError"),
+    );
   if (init.signal?.aborted) {
     abortFromCaller();
   } else {
@@ -47,8 +54,10 @@ async function fetchWithTimeout(
   try {
     return await fetch(input, { ...init, signal: controller.signal });
   } catch (error) {
-    if (controller.signal.reason instanceof DOMException &&
-        controller.signal.reason.name === "TimeoutError") {
+    if (
+      controller.signal.reason instanceof DOMException &&
+      controller.signal.reason.name === "TimeoutError"
+    ) {
       throw new Error(`模型服务在 ${Math.ceil(timeoutMs / 1000)} 秒内未响应`);
     }
     throw error;
@@ -64,9 +73,7 @@ function trimEndpoint(endpoint: string): string {
 
 function openAiChatUrl(endpoint: string): string {
   const base = trimEndpoint(endpoint);
-  return /\/chat\/completions$/i.test(base)
-    ? base
-    : `${base}/chat/completions`;
+  return /\/chat\/completions$/i.test(base) ? base : `${base}/chat/completions`;
 }
 
 function openAiModelsUrl(endpoint: string): string {
@@ -82,13 +89,17 @@ export async function listModels(
     config.provider === "ollama"
       ? `${trimEndpoint(config.endpoint)}/api/tags`
       : openAiModelsUrl(config.endpoint);
-  const response = await fetchWithTimeout(url, {
-    headers:
-      config.provider === "openai-compatible" && config.apiKey
-        ? { Authorization: `Bearer ${config.apiKey.trim()}` }
-        : undefined,
-    signal,
-  }, 8_000);
+  const response = await fetchWithTimeout(
+    url,
+    {
+      headers:
+        config.provider === "openai-compatible" && config.apiKey
+          ? { Authorization: `Bearer ${config.apiKey.trim()}` }
+          : undefined,
+      signal,
+    },
+    8_000,
+  );
   if (!response.ok) {
     throw new Error(`无法获取模型列表（${response.status}）`);
   }
@@ -116,17 +127,21 @@ async function chat(
   },
 ): Promise<string> {
   if (config.provider === "ollama") {
-    const response = await fetchWithTimeout(`${trimEndpoint(config.endpoint)}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: config.model,
-        stream: false,
-        options: { temperature: options?.temperature ?? 0.1 },
-        messages,
-      }),
-      signal: options?.signal,
-    }, options?.timeoutMs);
+    const response = await fetchWithTimeout(
+      `${trimEndpoint(config.endpoint)}/api/chat`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: config.model,
+          stream: false,
+          options: { temperature: options?.temperature ?? 0.1 },
+          messages,
+        }),
+        signal: options?.signal,
+      },
+      options?.timeoutMs,
+    );
     if (!response.ok) {
       throw new Error(`Ollama 请求失败（${response.status}）`);
     }
@@ -137,22 +152,26 @@ async function chat(
     return data.message.content;
   }
 
-  const response = await fetchWithTimeout(openAiChatUrl(config.endpoint), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(config.apiKey
-        ? { Authorization: `Bearer ${config.apiKey.trim()}` }
-        : {}),
+  const response = await fetchWithTimeout(
+    openAiChatUrl(config.endpoint),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(config.apiKey
+          ? { Authorization: `Bearer ${config.apiKey.trim()}` }
+          : {}),
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: options?.temperature ?? 0.1,
+        max_tokens: options?.maxTokens,
+        messages,
+      }),
+      signal: options?.signal,
     },
-    body: JSON.stringify({
-      model: config.model,
-      temperature: options?.temperature ?? 0.1,
-      max_tokens: options?.maxTokens,
-      messages,
-    }),
-    signal: options?.signal,
-  }, options?.timeoutMs);
+    options?.timeoutMs,
+  );
   if (!response.ok) {
     const details = await response.text().catch(() => "");
     throw new Error(
@@ -226,8 +245,7 @@ export async function gradeAnswerWithModel(
     config,
     { temperature: 0, maxTokens: 500, signal, timeoutMs: 30_000 },
   );
-  const fenced =
-    content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] || content;
+  const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] || content;
   const start = fenced.indexOf("{");
   const end = fenced.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("模型评分格式不正确");
@@ -279,7 +297,9 @@ export async function generateQuizWithModel(
   const start = fenced.indexOf("{");
   const end = fenced.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("模型出题格式不正确");
-  const value = JSON.parse(fenced.slice(start, end + 1)) as { quiz?: QuizItem[] };
+  const value = JSON.parse(fenced.slice(start, end + 1)) as {
+    quiz?: QuizItem[];
+  };
   if (!Array.isArray(value.quiz) || !value.quiz.length) {
     throw new Error("模型没有返回有效练习题");
   }
@@ -350,7 +370,8 @@ function metadataSupportsVision(value: unknown): boolean | null {
     if (candidate && typeof candidate === "object") {
       const capability = candidate as Record<string, unknown>;
       if (capability.vision === true || capability.image === true) return true;
-      if (capability.vision === false || capability.image === false) return false;
+      if (capability.vision === false || capability.image === false)
+        return false;
     }
   }
   return null;
@@ -410,7 +431,10 @@ export async function explainPageImage(
     `请讲解教材 PDF 第 ${page} 页中可见的示意图、流程图、结构图或图表。` +
     "只依据图片中可见的标题、标注、箭头、图例和相互关系作答，不补充图片以外的事实。" +
     "先说明图在表达什么，再按阅读顺序解释各部分关系；若本页没有有意义的图，请明确说明。";
-  const imageBase64 = dataUrl.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+  const imageBase64 = dataUrl.replace(
+    /^data:image\/[a-zA-Z0-9.+-]+;base64,/,
+    "",
+  );
   const messages: ChatMessagePayload[] =
     config.provider === "ollama"
       ? [
@@ -438,8 +462,7 @@ export async function explainPageImage(
 }
 
 function extractJsonArray(content: string): unknown {
-  const fenced =
-    content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] || content;
+  const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] || content;
   const start = fenced.indexOf("[");
   const end = fenced.lastIndexOf("]");
   if (start < 0 || end <= start) {
@@ -451,27 +474,19 @@ function extractJsonArray(content: string): unknown {
 export async function enhanceTextBlocks(
   blocks: TextBlock[],
   config: LlmConfig,
-  onProgress?: (completed: number, total: number) => void,
+  onProgress?: (
+    completed: number,
+    total: number,
+    partial: ReadonlyMap<string, string>,
+  ) => void,
   signal?: AbortSignal,
+  options?: BatchGenerationOptions,
 ): Promise<Map<string, string>> {
-  const batches: TextBlock[][] = [];
-  let batch: TextBlock[] = [];
-  let characters = 0;
-  blocks.forEach((block) => {
-    if (batch.length && characters + block.text.length > 5200) {
-      batches.push(batch);
-      batch = [];
-      characters = 0;
-    }
-    batch.push(block);
-    characters += block.text.length;
-  });
-  if (batch.length) batches.push(batch);
-
+  const batches = createBlockBatches(blocks);
   const enhanced = new Map<string, string>();
-  for (let index = 0; index < batches.length; index += 1) {
+  let completed = 0;
+  const tasks = batches.map((current) => async () => {
     signal?.throwIfAborted();
-    const current = batches[index];
     const source = current.map((block) => ({
       id: block.id,
       page: block.page,
@@ -482,7 +497,7 @@ export async function enhanceTextBlocks(
         {
           role: "system",
           content:
-            "你是教材文本整理器。只能整理输入原文，不得补充外部知识、推断、总结或删除事实。清除页眉页脚、孤立页码和重复章名；修复 PDF 提取造成的断词与多余空格；保留标题、编号、术语、数据和原有论述顺序；将每个块整理为清晰可读的中文。严格返回 JSON 数组，每项格式为 {\"id\":\"原ID\",\"text\":\"整理后的完整文本\"}，不要返回其他内容。",
+            '你是教材文本整理器。只能整理输入原文，不得补充外部知识、推断、总结或删除事实。清除页眉页脚、孤立页码和重复章名；修复 PDF 提取造成的断词与多余空格；保留标题、编号、术语、数据和原有论述顺序；将每个块整理为清晰可读的中文。严格返回 JSON 数组，每项格式为 {"id":"原ID","text":"整理后的完整文本"}，不要返回其他内容。',
         },
         {
           role: "user",
@@ -501,6 +516,7 @@ export async function enhanceTextBlocks(
     if (!Array.isArray(parsed)) {
       throw new Error("模型返回格式不正确");
     }
+    const result = new Map<string, string>();
     parsed.forEach((item) => {
       if (
         typeof item === "object" &&
@@ -512,11 +528,16 @@ export async function enhanceTextBlocks(
         current.some((block) => block.id === item.id) &&
         item.text.trim().length > 8
       ) {
-        enhanced.set(item.id, item.text.trim());
+        result.set(item.id, item.text.trim());
       }
     });
-    onProgress?.(index + 1, batches.length);
-  }
+    return result;
+  });
+  await runBatchQueue(tasks, options, (result, index) => {
+    result.forEach((text, id) => enhanced.set(id, text));
+    completed += batches[index].length;
+    onProgress?.(completed, blocks.length, new Map(enhanced));
+  });
   return enhanced;
 }
 

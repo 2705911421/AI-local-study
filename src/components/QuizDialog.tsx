@@ -72,9 +72,7 @@ export function QuizDialog({
                   <span>你对这题的判断</span>
                   <button
                     className={
-                      quizMastery[quizIndex] === "mastered"
-                        ? "is-selected"
-                        : ""
+                      quizMastery[quizIndex] === "mastered" ? "is-selected" : ""
                     }
                     onClick={() => onSetMastery("mastered")}
                   >
@@ -82,9 +80,7 @@ export function QuizDialog({
                   </button>
                   <button
                     className={
-                      quizMastery[quizIndex] === "review"
-                        ? "is-selected"
-                        : ""
+                      quizMastery[quizIndex] === "review" ? "is-selected" : ""
                     }
                     onClick={() => onSetMastery("review")}
                   >

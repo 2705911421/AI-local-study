@@ -21,9 +21,7 @@ const entry = await readFile(
   path.join(clientDir, entryPath.replace(/^\//, "")),
   "utf8",
 );
-const dependencyMapSource = entry.match(
-  /m\.f\|\|\(m\.f=(\[[^\]]+\])/,
-)?.[1];
+const dependencyMapSource = entry.match(/m\.f\|\|\(m\.f=(\[[^\]]+\])/)?.[1];
 
 assert(dependencyMapSource, "无法读取 Vite 动态导入依赖映射");
 
@@ -37,10 +35,7 @@ function dependenciesFor(modulePrefix) {
     .slice(importIndex, importIndex + 600)
     .match(/__vite__mapDeps\((\[[^\]]+\])\)/)?.[1];
 
-  assert(
-    dependencyIndexesSource,
-    `${modulePrefix} 动态入口缺少独立的资源依赖`,
-  );
+  assert(dependencyIndexesSource, `${modulePrefix} 动态入口缺少独立的资源依赖`);
 
   return JSON.parse(dependencyIndexesSource).map(
     (index) => dependencyMap[index],

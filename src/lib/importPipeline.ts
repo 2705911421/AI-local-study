@@ -6,12 +6,7 @@ import {
 } from "./document";
 
 export type ImportStage =
-  | "validation"
-  | "reading"
-  | "structure"
-  | "ocr"
-  | "index"
-  | "save";
+  "validation" | "reading" | "structure" | "ocr" | "index" | "save";
 
 export interface ImportProgress {
   stage: ImportStage;
@@ -25,7 +20,9 @@ export interface ImportOptions {
   onProgress?: (progress: ImportProgress) => void;
   ocr?: boolean;
   ocrLanguages?: string[];
-  loadCheckpoint?: (contentHash: string) => Promise<ImportCheckpoint | undefined>;
+  loadCheckpoint?: (
+    contentHash: string,
+  ) => Promise<ImportCheckpoint | undefined>;
   saveCheckpoint?: (checkpoint: ImportCheckpoint) => Promise<void>;
   deleteCheckpoint?: (checkpointId: string) => Promise<void>;
 }
@@ -50,7 +47,10 @@ function throwIfAborted(signal?: AbortSignal) {
 }
 
 async function sha256(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    await file.arrayBuffer(),
+  );
   return [...new Uint8Array(digest)]
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
@@ -179,9 +179,7 @@ async function parseScannedPdf(
   }
 }
 
-export function createImportPipeline(
-  parser: DocumentParser = parseDocument,
-): {
+export function createImportPipeline(parser: DocumentParser = parseDocument): {
   run(file: File, options?: ImportOptions): Promise<ImportResult>;
 } {
   return {

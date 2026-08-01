@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { IntelligenceRuntime } from "./runtime.mjs";
+import { IntelligenceRuntime } from "./runtime.js";
 
 function request(id) {
   return {
@@ -63,4 +63,3 @@ describe("IntelligenceRuntime", () => {
     expect(agentSource.invoke).not.toHaveBeenCalled();
   });
 });
-

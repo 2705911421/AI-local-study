@@ -9,7 +9,10 @@ test("桌面首次选择、来源字段与设置持久化均无需终端", async
     ...process.env,
     ZHIYE_TEST_USER_DATA: userData,
   };
-  const first = await electron.launch({ args: ["."], env });
+  const first = await electron.launch({
+    args: ["--no-sandbox", "."],
+    env,
+  });
   try {
     const page = await first.firstWindow();
     const splash = page.locator(".startup-splash");
@@ -22,7 +25,9 @@ test("桌面首次选择、来源字段与设置持久化均无需终端", async
 
     const provider = page.getByLabel("LLM 服务类型");
     await provider.selectOption("codex");
-    await expect(page.getByRole("button", { name: "通过浏览器连接" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "通过浏览器连接" }),
+    ).toBeVisible();
     await expect(page.getByLabel("LLM 模型名称")).toHaveCount(0);
 
     await provider.selectOption("ollama");
@@ -34,7 +39,10 @@ test("桌面首次选择、来源字段与设置持久化均无需终端", async
     await first.close();
   }
 
-  const second = await electron.launch({ args: ["."], env });
+  const second = await electron.launch({
+    args: ["--no-sandbox", "."],
+    env,
+  });
   try {
     const page = await second.firstWindow();
     await expect(page.getByRole("dialog", { name: "设置" })).toHaveCount(0);

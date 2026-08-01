@@ -1,7 +1,8 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import type { SafeLog } from "./intelligence/types.js";
 
-export function createSafeLogger(userData) {
+export function createSafeLogger(userData: string): SafeLog {
   const logDir = path.join(userData, "logs");
   const logFile = path.join(logDir, "intelligence.log");
   return async function log(event, fields = {}) {
@@ -19,7 +20,6 @@ export function createSafeLogger(userData) {
   };
 }
 
-function clean(value) {
+function clean(value: unknown): string | undefined {
   return typeof value === "string" ? value.slice(0, 80) : undefined;
 }
-

@@ -89,12 +89,12 @@ npm run desktop:build
 
 ## 智能来源
 
-| 来源 | Web 版 | 桌面版 | 配置方式 |
-| --- | :---: | :---: | --- |
-| 本机 Ollama | ✓ | ✓ | 服务地址与模型名称 |
-| OpenAI 兼容服务 | ✓ | ✓ | Chat Completions 基础地址、模型 ID、API Key |
-| Codex | — | ✓ | 应用内官方设备登录 |
-| Claude | — | ✓ | 官方订阅令牌流程或专用 API Key |
+| 来源            | Web 版 | 桌面版 | 配置方式                                    |
+| --------------- | :----: | :----: | ------------------------------------------- |
+| 本机 Ollama     |   ✓    |   ✓    | 服务地址与模型名称                          |
+| OpenAI 兼容服务 |   ✓    |   ✓    | Chat Completions 基础地址、模型 ID、API Key |
+| Codex           |   —    |   ✓    | 应用内官方设备登录                          |
+| Claude          |   —    |   ✓    | 官方订阅令牌流程或专用 API Key              |
 
 在右上角“设置”中选择来源、获取模型列表并测试连接。未连接模型时，应用仍可使用本地教材检索和基础学习功能。
 
@@ -113,18 +113,26 @@ Web 版仅在当前页面会话的内存中保存 API Key，刷新后需要重�
 
 ## 导入限制
 
-| 类型 | 文件上限 | 其他限制 |
-| --- | ---: | --- |
-| PDF | 150 MB | 最多 2,000 页 |
-| EPUB | 50 MB | 解压后最多 300 MB，章节清单最多 2,000 项 |
+| 类型 | 文件上限 | 其他限制                                 |
+| ---- | -------: | ---------------------------------------- |
+| PDF  |   150 MB | 最多 2,000 页                            |
+| EPUB |    50 MB | 解压后最多 300 MB，章节清单最多 2,000 项 |
 
 扫描版 PDF 的 OCR 默认关闭。首次启用时需要联网下载并缓存中英文识别模型，后续识别在本机完成；速度和准确率取决于页面质量与设备性能。
 
 ## 测试与质量检查
 
 ```powershell
+# 静态分析、格式与 TypeScript 检查
+npm run lint
+npm run format:check
+npm run typecheck
+
 # 单元与组件测试
 npm test
+
+# 生成 V8 覆盖率报告（coverage/index.html）
+npm run test:coverage
 
 # Web 端到端测试（桌面和移动视口）
 npm run test:e2e
@@ -147,7 +155,7 @@ npm run audit:runtime
 │  ├─ components/         导入、阅读、练习、设置等界面组件
 │  ├─ hooks/              应用交互与业务流程
 │  └─ lib/                文档解析、检索、学习引擎、存储和备份
-├─ electron/              Electron 主进程、预加载脚本和智能来源运行时
+├─ electron/              TypeScript 主进程、预加载脚本和智能来源运行时
 ├─ tests/                 Web 与桌面端 Playwright 测试
 ├─ scripts/               Web/桌面构建、品牌资源和运行时准备脚本
 ├─ sites/                 Cloudflare Worker 入口
@@ -158,15 +166,19 @@ npm run audit:runtime
 
 ## 常用命令
 
-| 命令 | 说明 |
-| --- | --- |
-| `npm run dev` | 启动 Vite 开发服务器 |
-| `npm run desktop:dev` | 启动 Web 开发服务器和 Electron |
-| `npm run build` | 构建 Web 版及站点 Worker |
-| `npm run build:desktop-client` | 仅构建 Electron 渲染端 |
-| `npm run desktop:build:unsigned` | 生成本地验收用未签名安装包 |
-| `npm run desktop:build` | 生成并验证正式签名安装包 |
-| `npm run brand:generate` | 重新生成桌面品牌资源 |
+| 命令                             | 说明                            |
+| -------------------------------- | ------------------------------- |
+| `npm run dev`                    | 启动 Vite 开发服务器            |
+| `npm run desktop:dev`            | 启动 Web 开发服务器和 Electron  |
+| `npm run build`                  | 构建 Web 版及站点 Worker        |
+| `npm run build:desktop-client`   | 仅构建 Electron 渲染端          |
+| `npm run build:electron`         | 编译 Electron TypeScript 主进程 |
+| `npm run lint`                   | 运行 ESLint 静态分析            |
+| `npm run format`                 | 使用 Prettier 统一格式          |
+| `npm run test:coverage`          | 运行测试并生成覆盖率报告        |
+| `npm run desktop:build:unsigned` | 生成本地验收用未签名安装包      |
+| `npm run desktop:build`          | 生成并验证正式签名安装包        |
+| `npm run brand:generate`         | 重新生成桌面品牌资源            |
 
 ## 当前限制
 

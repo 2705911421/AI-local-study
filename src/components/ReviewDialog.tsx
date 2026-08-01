@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowSquareOut, ClockCounterClockwise, X } from "@phosphor-icons/react";
+import {
+  ArrowSquareOut,
+  ClockCounterClockwise,
+  X,
+} from "@phosphor-icons/react";
 import type {
   ReviewRating,
   ReviewSchedule,
@@ -69,10 +73,14 @@ export function ReviewDialog({
             {item ? (
               <>
                 <div className="review-context">
-                  <span>{item.document.displayTitle || item.document.title}</span>
+                  <span>
+                    {item.document.displayTitle || item.document.title}
+                  </span>
                   <strong>{item.chapterTitle}</strong>
                 </div>
-                <blockquote>{item.block.smartText || item.block.text}</blockquote>
+                <blockquote>
+                  {item.block.smartText || item.block.text}
+                </blockquote>
                 <button
                   className="review-evidence"
                   onClick={() => onOpenEvidence(item)}

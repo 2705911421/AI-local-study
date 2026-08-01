@@ -1,19 +1,57 @@
 import { createCipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
-import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
+
+interface BackupServiceOptions {
+  userData: string;
+  safeStorage: Electron.SafeStorage;
+}
+
+interface BackupSettings {
+  enabled: boolean;
+  directory: string;
+  retention: number;
+  lastBackupAt: number;
+}
+
+export interface BackupConfiguration {
+  directory: string;
+  passphrase: string;
+  enabled: boolean;
+}
+
+interface RawBackupConfiguration {
+  enabled?: boolean;
+  directory?: string;
+  retention?: number;
+  lastBackupAt?: number;
+  encryptedPassphrase?: string;
+}
 
 const MAGIC = Buffer.from("ZHIYE-BACKUP-V2\n", "utf8");
 const ITERATIONS = 600_000;
 
 export class BackupService {
-  constructor({ userData, safeStorage }) {
+  private readonly configPath: string;
+  private readonly safeStorage: Electron.SafeStorage;
+
+  constructor({ userData, safeStorage }: BackupServiceOptions) {
     this.configPath = path.join(userData, "auto-backup.json");
     this.safeStorage = safeStorage;
   }
 
-  async settings() {
+  async settings(): Promise<BackupSettings> {
     try {
-      const value = JSON.parse(await readFile(this.configPath, "utf8"));
+      const value = JSON.parse(
+        await readFile(this.configPath, "utf8"),
+      ) as RawBackupConfiguration;
       return {
         enabled: Boolean(value.enabled),
         directory: typeof value.directory === "string" ? value.directory : "",
@@ -25,7 +63,11 @@ export class BackupService {
     }
   }
 
-  async configure({ directory, passphrase, enabled }) {
+  async configure({
+    directory,
+    passphrase,
+    enabled,
+  }: BackupConfiguration): Promise<BackupSettings> {
     if (enabled && (!directory || String(passphrase || "").length < 12)) {
       throw new Error("自动备份需要目录和至少 12 个字符的密码");
     }
@@ -48,16 +90,20 @@ export class BackupService {
     return this.settings();
   }
 
-  async writePortableBackup(payload) {
+  async writePortableBackup(payload: Uint8Array): Promise<boolean> {
     const raw = await this.readRaw();
-    if (!raw.enabled || !raw.directory || !raw.encryptedPassphrase) return false;
+    if (!raw.enabled || !raw.directory || !raw.encryptedPassphrase)
+      return false;
     const passphrase = this.safeStorage.decryptString(
       Buffer.from(raw.encryptedPassphrase, "base64"),
     );
     const encrypted = encryptPayload(Buffer.from(payload), passphrase);
     await mkdir(raw.directory, { recursive: true });
     const date = new Date().toISOString().slice(0, 10);
-    const target = path.join(raw.directory, `知页自动备份-${date}.zhiye-backup`);
+    const target = path.join(
+      raw.directory,
+      `知页自动备份-${date}.zhiye-backup`,
+    );
     const temporary = `${target}.tmp`;
     await writeFile(temporary, encrypted);
     await rename(temporary, target);
@@ -76,16 +122,21 @@ export class BackupService {
     return true;
   }
 
-  async readRaw() {
+  private async readRaw(): Promise<RawBackupConfiguration> {
     try {
-      return JSON.parse(await readFile(this.configPath, "utf8"));
+      return JSON.parse(
+        await readFile(this.configPath, "utf8"),
+      ) as RawBackupConfiguration;
     } catch {
       return {};
     }
   }
 }
 
-export function encryptPayload(payload, passphrase) {
+export function encryptPayload(
+  payload: Uint8Array,
+  passphrase: string,
+): Buffer {
   if (String(passphrase).length < 12) throw new Error("备份密码过短");
   const salt = randomBytes(16);
   const iv = randomBytes(12);
@@ -111,9 +162,11 @@ export function encryptPayload(payload, passphrase) {
   return Buffer.concat([MAGIC, length, headerBytes, ciphertext]);
 }
 
-async function rotate(directory, retention) {
+async function rotate(directory: string, retention: number): Promise<void> {
   const files = (await readdir(directory))
-    .filter((name) => /^知页自动备份-\d{4}-\d{2}-\d{2}\.zhiye-backup$/.test(name))
+    .filter((name) =>
+      /^知页自动备份-\d{4}-\d{2}-\d{2}\.zhiye-backup$/.test(name),
+    )
     .sort()
     .reverse();
   await Promise.all(

@@ -96,9 +96,12 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!isLeaving) return;
-    const timer = window.setTimeout(() => {
-      window.location.assign(new URL("./app", window.location.href).href);
-    }, reduceMotion ? 20 : 720);
+    const timer = window.setTimeout(
+      () => {
+        window.location.assign(new URL("./app", window.location.href).href);
+      },
+      reduceMotion ? 20 : 720,
+    );
     return () => window.clearTimeout(timer);
   }, [isLeaving, reduceMotion]);
 
@@ -239,7 +242,10 @@ export default function LandingPage() {
               style={reduceMotion ? undefined : { x: productX, y: productY }}
             >
               <span className="paper-tape paper-tape-left" aria-hidden="true" />
-              <span className="paper-tape paper-tape-right" aria-hidden="true" />
+              <span
+                className="paper-tape paper-tape-right"
+                aria-hidden="true"
+              />
               <div className="hero-frame">
                 <img
                   src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
@@ -328,9 +334,7 @@ export default function LandingPage() {
           <div className="story-copy">
             <Quotes weight="fill" aria-hidden="true" />
             <h2>答案不是终点，原文才是。</h2>
-            <p>
-              点击引用即可回到教材位置。整理后的内容不会替代你的原始教材。
-            </p>
+            <p>点击引用即可回到教材位置。整理后的内容不会替代你的原始教材。</p>
             <div className="story-detail" aria-label="原文能力">
               <span>PDF 原版阅读</span>
               <span>语义分段</span>
@@ -395,7 +399,8 @@ export default function LandingPage() {
             <p className="eyebrow">Windows 桌面版</p>
             <h2>为长时间阅读，留出一张安静的桌面。</h2>
             <p>
-              首个正式版本面向 Windows x64。签名安装包完成发布审核后开放下载，在线体验现在即可使用。
+              首个正式版本面向 Windows
+              x64。签名安装包完成发布审核后开放下载，在线体验现在即可使用。
             </p>
           </div>
           <div className="download-actions">
@@ -454,11 +459,17 @@ export default function LandingPage() {
           className="page-transition"
           initial={reduceMotion ? false : { y: "100%", rotate: 1.5 }}
           animate={{ y: 0, rotate: 0 }}
-          transition={{ duration: reduceMotion ? 0 : 0.68, ease: [0.76, 0, 0.24, 1] }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.68,
+            ease: [0.76, 0, 0.24, 1],
+          }}
           aria-hidden="true"
         >
           <div>
-            <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
+            <img
+              src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`}
+              alt=""
+            />
             <span>把教材翻到工作台</span>
           </div>
         </motion.div>

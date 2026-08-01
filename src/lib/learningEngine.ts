@@ -7,6 +7,7 @@ import type {
   StudyDocument,
   TextBlock,
 } from "../types";
+import { cosineSimilarity, embedLocalText } from "./localEmbedding";
 
 const STOP_WORDS = new Set([
   "什么",
@@ -58,8 +59,10 @@ function bm25Scores(query: string, candidates: RetrievalCandidate[]): number[] {
   const queryTerms = terms(query);
   if (!queryTerms.length || !candidates.length) return candidates.map(() => 0);
   const averageLength =
-    candidates.reduce((total, candidate) => total + terms(candidate.text).length, 0) /
-    candidates.length;
+    candidates.reduce(
+      (total, candidate) => total + terms(candidate.text).length,
+      0,
+    ) / candidates.length;
   const k1 = 1.35;
   const b = 0.72;
 
@@ -74,7 +77,9 @@ function bm25Scores(query: string, candidates: RetrievalCandidate[]): number[] {
           normalize(item.titleText).includes(term),
       ).length;
       const inverseFrequency = Math.log(
-        1 + (candidates.length - documentFrequency + 0.5) / (documentFrequency + 0.5),
+        1 +
+          (candidates.length - documentFrequency + 0.5) /
+            (documentFrequency + 0.5),
       );
       const bodyFrequency = bodyTerms.filter((item) => item === term).length;
       const titleFrequency = titleTerms.filter((item) => item === term).length;
@@ -87,7 +92,10 @@ function bm25Scores(query: string, candidates: RetrievalCandidate[]): number[] {
         inverseFrequency *
         ((weightedFrequency * (k1 + 1)) / lengthNormalization);
     }
-    if (/什么是|定义|含义|指什么/.test(query) && /是|指|定义|称为/.test(candidate.text)) {
+    if (
+      /什么是|定义|含义|指什么/.test(query) &&
+      /是|指|定义|称为/.test(candidate.text)
+    ) {
       score += 0.45;
     }
     return score;
@@ -99,6 +107,7 @@ export function retrieve(
   activeChapter: Chapter,
   chapters: Chapter[],
   limit = 2,
+  semanticSearch = true,
 ): Citation[] {
   return retrieveCandidates(
     query,
@@ -112,6 +121,7 @@ export function retrieve(
     ),
     limit,
     activeChapter.id,
+    semanticSearch,
   );
 }
 
@@ -120,14 +130,28 @@ function retrieveCandidates(
   rawCandidates: RetrievalCandidate[],
   limit: number,
   activeChapterId?: string,
+  semanticSearch = true,
 ): Citation[] {
   const rawScores = bm25Scores(query, rawCandidates);
   const maxScore = Math.max(...rawScores, 0);
+  const queryVector = semanticSearch
+    ? embedLocalText(query)
+    : new Float32Array();
+  const vectorScores = rawCandidates.map((candidate) =>
+    semanticSearch
+      ? cosineSimilarity(
+          queryVector,
+          embedLocalText(`${candidate.titleText} ${candidate.text}`),
+        )
+      : 0,
+  );
   const candidates = rawCandidates
     .map((candidate, index) => ({
       ...candidate,
       score:
-        (maxScore ? rawScores[index] / maxScore : 0) *
+        ((maxScore ? rawScores[index] / maxScore : 0) *
+          (semanticSearch ? 0.7 : 1) +
+          vectorScores[index] * (semanticSearch ? 0.9 : 0)) *
         (candidate.chapter.id === activeChapterId ? 1.08 : 1),
     }))
     .filter((candidate) => candidate.score >= 0.08)
@@ -170,6 +194,7 @@ export function retrieveDocuments(
   documents: StudyDocument[],
   activeChapterId?: string,
   limit = 3,
+  semanticSearch = true,
 ): Citation[] {
   return retrieveCandidates(
     query,
@@ -186,6 +211,7 @@ export function retrieveDocuments(
     ),
     limit,
     activeChapterId,
+    semanticSearch,
   );
 }
 
@@ -196,7 +222,9 @@ function extractKeyPoints(text: string): string[] {
     .filter((item) => item.length >= 2)
     .flatMap((item) => {
       if (item.length <= 8) return [item];
-      return terms(item).filter((term) => term.length >= 2).slice(0, 3);
+      return terms(item)
+        .filter((term) => term.length >= 2)
+        .slice(0, 3);
     });
   return [...new Set(phrases)].slice(0, 4);
 }
@@ -216,12 +244,7 @@ export function createQuiz(chapter: Chapter, count = 5): QuizItem[] {
   });
   return chosen.map((block, index) => {
     const answer = (block.smartText || block.text).split(/[。！？]/)[0];
-    const kinds = [
-      "recall",
-      "distinguish",
-      "application",
-      "choice",
-    ] as const;
+    const kinds = ["recall", "distinguish", "application", "choice"] as const;
     const kind = kinds[index % kinds.length];
     const prompt =
       kind === "recall"
@@ -287,7 +310,10 @@ export function scheduleReview(
       intervalDays =
         priorRepetitions === 0
           ? 4
-          : Math.max(4, Math.round(Math.max(1, priorInterval) * priorEase * 1.3));
+          : Math.max(
+              4,
+              Math.round(Math.max(1, priorInterval) * priorEase * 1.3),
+            );
       easeFactor = priorEase + 0.15;
     } else {
       intervalDays =
@@ -322,14 +348,21 @@ export function gradeAnswer(answer: string, keyPoints: string[]): GradeResult {
   const normalized = normalize(answer);
   const coveredKeyPoints = keyPoints.filter((point) => {
     const pointTerms = terms(point);
-    return normalized.includes(normalize(point)) || pointTerms.some((term) => normalized.includes(term));
+    return (
+      normalized.includes(normalize(point)) ||
+      pointTerms.some((term) => normalized.includes(term))
+    );
   });
-  const ratio = keyPoints.length ? coveredKeyPoints.length / keyPoints.length : 0;
+  const ratio = keyPoints.length
+    ? coveredKeyPoints.length / keyPoints.length
+    : 0;
   const lengthFactor = Math.min(1, normalized.length / 18);
   const score = Math.min(1, ratio * 0.85 + lengthFactor * 0.15);
   return {
     score,
     coveredKeyPoints,
-    missingKeyPoints: keyPoints.filter((point) => !coveredKeyPoints.includes(point)),
+    missingKeyPoints: keyPoints.filter(
+      (point) => !coveredKeyPoints.includes(point),
+    ),
   };
 }

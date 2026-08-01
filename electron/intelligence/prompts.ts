@@ -13,12 +13,7 @@ const gradeSchema = {
     coveredKeyPoints: { type: "array", items: { type: "string" } },
     missingKeyPoints: { type: "array", items: { type: "string" } },
   },
-  required: [
-    "score",
-    "feedback",
-    "coveredKeyPoints",
-    "missingKeyPoints",
-  ],
+  required: ["score", "feedback", "coveredKeyPoints", "missingKeyPoints"],
   additionalProperties: false,
 };
 
@@ -62,7 +57,7 @@ const quizSchema = {
   additionalProperties: false,
 };
 
-function blocksSchema(ids) {
+function blocksSchema(ids: string[]): JsonSchema {
   return {
     type: "object",
     properties: {
@@ -84,7 +79,10 @@ function blocksSchema(ids) {
   };
 }
 
-export function buildTask(request, imagePath) {
+export function buildTask(
+  request: IntelligenceRequest,
+  imagePath?: string,
+): BuiltTask {
   const common =
     "不要调用任何工具，不要读取文件或网络，只处理下面明确提供的教材内容。";
   switch (request.task) {
@@ -163,52 +161,37 @@ export function buildTask(request, imagePath) {
   }
 }
 
-export function parseStructured(value, requestId) {
-  const parsed =
-    typeof value === "string" ? parseJsonObject(value) : value;
+export function parseStructured(
+  value: unknown,
+  requestId: string,
+): IntelligenceResult {
+  const parsed = typeof value === "string" ? parseJsonObject(value) : value;
   if (!parsed || typeof parsed !== "object") {
     throw new Error("智能来源返回格式不正确");
   }
-  if ("blocks" in parsed) {
-    if (!Array.isArray(parsed.blocks)) throw new Error("智能文本格式不正确");
+  const record = parsed as Record<string, unknown>;
+  if ("blocks" in record) {
+    if (!Array.isArray(record.blocks)) throw new Error("智能文本格式不正确");
     return {
       requestId,
-      blocks: parsed.blocks.filter(
-        (item) =>
-          item &&
-          typeof item.id === "string" &&
-          typeof item.text === "string" &&
-          item.text.trim().length > 8,
-      ),
+      blocks: record.blocks.filter(isGeneratedBlock),
     };
   }
-  if ("quiz" in parsed) {
-    if (!Array.isArray(parsed.quiz)) throw new Error("练习题格式不正确");
-    const quiz = parsed.quiz.filter(
-      (item) =>
-        item &&
-        typeof item.id === "string" &&
-        ["recall", "distinguish", "choice", "application"].includes(item.kind) &&
-        typeof item.prompt === "string" &&
-        typeof item.answer === "string" &&
-        typeof item.rationale === "string" &&
-        typeof item.locator === "string" &&
-        typeof item.evidenceBlockId === "string" &&
-        Array.isArray(item.keyPoints) &&
-        Array.isArray(item.options),
-    );
+  if ("quiz" in record) {
+    if (!Array.isArray(record.quiz)) throw new Error("练习题格式不正确");
+    const quiz = record.quiz.filter(isQuizItem);
     if (!quiz.length) throw new Error("智能来源没有返回有效练习题");
     return { requestId, quiz };
   }
-  if ("score" in parsed) {
-    const score = Number(parsed.score);
+  if ("score" in record) {
+    const score = Number(record.score);
     if (
       !Number.isFinite(score) ||
       score < 0 ||
       score > 1 ||
-      typeof parsed.feedback !== "string" ||
-      !Array.isArray(parsed.coveredKeyPoints) ||
-      !Array.isArray(parsed.missingKeyPoints)
+      typeof record.feedback !== "string" ||
+      !Array.isArray(record.coveredKeyPoints) ||
+      !Array.isArray(record.missingKeyPoints)
     ) {
       throw new Error("模型评分缺少必要字段");
     }
@@ -216,23 +199,58 @@ export function parseStructured(value, requestId) {
       requestId,
       grade: {
         score,
-        feedback: parsed.feedback,
-        coveredKeyPoints: parsed.coveredKeyPoints.map(String),
-        missingKeyPoints: parsed.missingKeyPoints.map(String),
+        feedback: record.feedback,
+        coveredKeyPoints: record.coveredKeyPoints.map(String),
+        missingKeyPoints: record.missingKeyPoints.map(String),
       },
     };
   }
-  if (typeof parsed.text === "string" && parsed.text.trim()) {
-    return { requestId, text: parsed.text.trim() };
+  if (typeof record.text === "string" && record.text.trim()) {
+    return { requestId, text: record.text.trim() };
   }
   throw new Error("智能来源没有返回可用内容");
 }
 
-function parseJsonObject(content) {
-  const fenced =
-    content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] || content;
+function parseJsonObject(content: string): Record<string, unknown> {
+  const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] || content;
   const start = fenced.indexOf("{");
   const end = fenced.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("智能来源没有返回 JSON");
-  return JSON.parse(fenced.slice(start, end + 1));
+  return JSON.parse(fenced.slice(start, end + 1)) as Record<string, unknown>;
 }
+
+function isQuizItem(item: unknown): item is Record<string, unknown> {
+  if (!isRecord(item)) return false;
+  return (
+    typeof item.id === "string" &&
+    ["recall", "distinguish", "choice", "application"].includes(
+      String(item.kind),
+    ) &&
+    typeof item.prompt === "string" &&
+    typeof item.answer === "string" &&
+    typeof item.rationale === "string" &&
+    typeof item.locator === "string" &&
+    typeof item.evidenceBlockId === "string" &&
+    Array.isArray(item.keyPoints) &&
+    Array.isArray(item.options)
+  );
+}
+
+function isGeneratedBlock(item: unknown): item is { id: string; text: string } {
+  return (
+    isRecord(item) &&
+    typeof item.id === "string" &&
+    typeof item.text === "string" &&
+    item.text.trim().length > 8
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+import type {
+  BuiltTask,
+  IntelligenceRequest,
+  IntelligenceResult,
+  JsonSchema,
+} from "./types.js";
