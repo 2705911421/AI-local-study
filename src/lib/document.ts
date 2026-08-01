@@ -143,7 +143,7 @@ function addEpubLocations(chapters: Chapter[]): Chapter[] {
   }));
 }
 
-interface PositionedPdfItem {
+export interface PositionedPdfItem {
   text: string;
   x: number;
   y: number;
@@ -179,7 +179,7 @@ function joinPdfLines(left: string, right: string): string {
   return `${left}${needsSpace ? " " : ""}${right}`;
 }
 
-function semanticPdfBlocks(
+export function semanticPdfBlocks(
   positionedItems: PositionedPdfItem[],
   chapterId: string,
   pageNumber: number,
@@ -539,7 +539,7 @@ async function parsePdf(
       filename: file.name,
       kind: "pdf",
       originalFile: file,
-      parserVersion: 2,
+      parserVersion: 3,
       createdAt,
       updatedAt: createdAt,
       lastOpenedAt: createdAt,

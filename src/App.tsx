@@ -1565,7 +1565,7 @@ function AppInner() {
               <div className="reader-tools">
                 {activeDocument.kind === "pdf" &&
                   activeDocument.originalFile &&
-                  activeDocument.parserVersion !== 2 && (
+                  activeDocument.parserVersion !== 3 && (
                     <button
                       className="segment-upgrade-button"
                       onClick={rebuildActiveDocumentSegments}
