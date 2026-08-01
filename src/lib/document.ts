@@ -117,6 +117,32 @@ function extractEpubBlocks(
   );
 }
 
+function addEpubLocations(chapters: Chapter[]): Chapter[] {
+  const blocks = chapters.flatMap((chapter) => chapter.blocks);
+  const totalCharacters = Math.max(
+    1,
+    blocks.reduce((total, block) => total + block.text.length, 0),
+  );
+  let offset = 0;
+  return chapters.map((chapter) => ({
+    ...chapter,
+    blocks: chapter.blocks.map((block) => {
+      const virtualPage = Math.floor(offset / 800) + 1;
+      const progressPercent = Math.min(
+        100,
+        Math.round((offset / totalCharacters) * 100),
+      );
+      offset += block.text.length;
+      return {
+        ...block,
+        virtualPage,
+        progressPercent,
+        locator: `${block.locator} · 虚拟页 ${virtualPage} · 进度 ${progressPercent}%`,
+      };
+    }),
+  }));
+}
+
 interface PositionedPdfItem {
   text: string;
   x: number;
@@ -272,6 +298,14 @@ function semanticPdfBlocks(
     .sort((a, b) => a - b);
   const baseLeft =
     leftValues[Math.floor(leftValues.length * 0.2)] || leftValues[0] || 0;
+  const columnBases = new Map<number, number>();
+  lines.forEach((line) => {
+    const column = line.column || 0;
+    columnBases.set(
+      column,
+      Math.min(columnBases.get(column) ?? line.x, line.x),
+    );
+  });
   const heights = substantialLines
     .map((line) => line.height)
     .sort((a, b) => a - b);
@@ -303,7 +337,7 @@ function semanticPdfBlocks(
     const currentOnlyHeading =
       current.length === 1 && isStructuralHeading(current[0], medianHeight);
     const startsIndentedParagraph =
-      line.x >= baseLeft + 8 &&
+      line.x >= (columnBases.get(line.column || 0) ?? baseLeft) + 8 &&
       Boolean(current.length) &&
       !changedColumn &&
       !currentOnlyHeading &&
@@ -608,7 +642,7 @@ async function parseEpub(
     createdAt,
     updatedAt: createdAt,
     lastOpenedAt: createdAt,
-    chapters,
+    chapters: addEpubLocations(chapters),
   };
 }
 
