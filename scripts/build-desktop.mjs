@@ -23,6 +23,7 @@ const installerName = `Zhiye-${packageJson.version}-windows-x64.exe`;
 const requireSignature = process.argv.includes("--require-signature");
 const allowUnsigned = process.argv.includes("--unsigned");
 const signingCertificate = process.env.WIN_CSC_LINK || process.env.CSC_LINK;
+const updateUrl = process.env.ZHIYE_UPDATE_URL;
 
 if (requireSignature === allowUnsigned) {
   throw new Error(
@@ -32,6 +33,11 @@ if (requireSignature === allowUnsigned) {
 if (requireSignature && !signingCertificate) {
   throw new Error(
     "Signed Windows builds require WIN_CSC_LINK (or CSC_LINK) and WIN_CSC_KEY_PASSWORD. Use npm run desktop:build:unsigned only for local QA.",
+  );
+}
+if (requireSignature && !/^https:\/\//i.test(updateUrl || "")) {
+  throw new Error(
+    "Signed release builds require an HTTPS ZHIYE_UPDATE_URL for electron-updater metadata.",
   );
 }
 
@@ -54,6 +60,7 @@ try {
     ],
     {
       CSC_IDENTITY_AUTO_DISCOVERY: requireSignature ? "true" : "false",
+      ZHIYE_UPDATE_URL: updateUrl || "https://updates.invalid/zhiye",
     },
   );
   const builtInstaller = path.join(output, installerName);

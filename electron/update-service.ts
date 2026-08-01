@@ -40,18 +40,22 @@ export class UpdateService {
   constructor({ updater, feedUrl, packaged }: UpdateServiceOptions) {
     this.updater = updater;
     this.feedUrl = normalizeUpdateUrl(feedUrl);
-    this.enabled = Boolean(packaged && this.feedUrl);
+    // Packaged builds can use electron-builder's embedded app-update.yml.
+    // An explicit URL remains useful for QA and private release channels.
+    this.enabled = packaged;
     this.state = {
       status: this.enabled ? "idle" : "disabled",
       currentVersion: "",
       availableVersion: "",
       progress: 0,
-      message: this.enabled ? "" : "正式更新源尚未配置",
+      message: this.enabled ? "" : "开发模式不检查应用更新",
     };
     if (!this.enabled) return;
     updater.autoDownload = true;
     updater.autoInstallOnAppQuit = true;
-    updater.setFeedURL({ provider: "generic", url: this.feedUrl });
+    if (this.feedUrl) {
+      updater.setFeedURL({ provider: "generic", url: this.feedUrl });
+    }
     updater.on("checking-for-update", () => this.patch({ status: "checking" }));
     updater.on("update-not-available", (info: UpdateInfo) =>
       this.patch({

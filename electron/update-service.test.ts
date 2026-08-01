@@ -30,4 +30,15 @@ describe("UpdateService", () => {
     expect(service.install()).toBe(true);
     expect(updater.quitAndInstall).toHaveBeenCalledWith(false, true);
   });
+
+  it("正式包可读取构建时写入的 app-update.yml", () => {
+    const updater = Object.assign(new EventEmitter(), {
+      setFeedURL: vi.fn(),
+      checkForUpdatesAndNotify: vi.fn(async () => undefined),
+      quitAndInstall: vi.fn(),
+    });
+    const service = new UpdateService({ updater, packaged: true });
+    expect(service.enabled).toBe(true);
+    expect(updater.setFeedURL).not.toHaveBeenCalled();
+  });
 });

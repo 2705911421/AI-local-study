@@ -135,7 +135,13 @@
     },
     "directories": {
       "output": "release"
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "${env.ZHIYE_UPDATE_URL}"
+      }
+    ]
   },
   "lint-staged": {
     "*.{js,cjs,mjs,ts,tsx}": [
