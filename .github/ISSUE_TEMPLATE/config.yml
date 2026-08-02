@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 私密安全报告
+    url: https://github.com/2705911421/AI-local-study/security/advisories/new
+    about: 请通过 Private vulnerability reporting 报告安全漏洞。
+  - name: 使用与贡献指南
+    url: https://github.com/2705911421/AI-local-study/blob/main/CONTRIBUTING.md
+    about: 提交前请先阅读贡献和验证要求。
