@@ -26,13 +26,13 @@ const forbiddenFiles = new Set([
 ]);
 const forbiddenSuffixes = [".log", ".tsbuildinfo"];
 const requiredProjectFiles = [
-  "CHANGELOG.md",
-  "CODE_OF_CONDUCT.md",
-  "CONTRIBUTING.md",
+  ".github/CODE_OF_CONDUCT.md",
+  ".github/CONTRIBUTING.md",
+  ".github/SECURITY.md",
+  ".github/SUPPORT.md",
+  "docs/CHANGELOG.md",
   "LICENSE",
   "NOTICE",
-  "SECURITY.md",
-  "SUPPORT.md",
 ];
 const result = spawnSync("git", ["ls-files", "-z"], {
   cwd: projectRoot,

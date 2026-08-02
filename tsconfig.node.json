@@ -9,7 +9,7 @@
   },
   "include": [
     "vite.config.ts",
-    "vitest.web.config.ts",
-    "vitest.electron.config.ts"
+    "tests/config/vitest.web.config.ts",
+    "tests/config/vitest.electron.config.ts"
   ]
 }
