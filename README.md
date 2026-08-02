@@ -77,7 +77,7 @@ npm run preview:worker
 npm run desktop:build:unsigned
 ```
 
-安装包、Blockmap 和 SHA-256 校验文件输出至 `artifacts/`。未签名安装包不可作为正式版本对外发布。
+安装包、Blockmap 和 SHA-256 校验文件输出至 `artifacts/desktop/`。未签名安装包不可作为正式版本对外发布。
 
 正式发布必须配置 Windows Authenticode 证书：
 
@@ -88,7 +88,7 @@ $env:ZHIYE_UPDATE_URL = "https://downloads.example.com/zhiye"
 npm run desktop:build
 ```
 
-缺少证书、HTTPS 更新地址或签名验证失败时，正式构建会直接终止。将 `artifacts/` 中的安装包、Blockmap 和 `latest.yml` 上传到该地址后，正式安装包会读取内置更新配置并自动检查更新。
+缺少证书、HTTPS 更新地址或签名验证失败时，正式构建会直接终止。将 `artifacts/desktop/` 中的安装包、Blockmap 和 `latest.yml` 上传到该地址后，正式安装包会读取内置更新配置并自动检查更新。
 
 ## 智能来源
 
@@ -164,7 +164,7 @@ npm run audit:runtime
 .
 ├─ src/                    React 应用、组件、业务逻辑与数据层
 │  ├─ components/         导入、阅读、练习、设置等界面组件
-│  ├─ hooks/              应用交互与业务流程
+│  ├─ workspace/          工作区领域接口、运行时与业务操作
 │  └─ lib/                文档解析、检索、学习引擎、存储和备份
 ├─ electron/              TypeScript 主进程、预加载脚本和智能来源运行时
 ├─ tests/                 Web 与桌面端 Playwright 测试
@@ -187,6 +187,8 @@ npm run audit:runtime
 | `npm run lint`                   | 运行 ESLint 静态分析            |
 | `npm run format`                 | 使用 Prettier 统一格式          |
 | `npm run test:coverage`          | 运行测试并生成覆盖率报告        |
+| `npm run clean:generated`        | 清理生成物并保留依赖目录        |
+| `npm run clean:dependencies`     | 单独清理 `node_modules`         |
 | `npm run desktop:build:unsigned` | 生成本地验收用未签名安装包      |
 | `npm run desktop:build`          | 生成并验证正式签名安装包        |
 | `npm run brand:generate`         | 重新生成桌面品牌资源            |

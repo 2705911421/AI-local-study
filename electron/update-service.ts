@@ -52,7 +52,7 @@ export class UpdateService {
     };
     if (!this.enabled) return;
     updater.autoDownload = true;
-    updater.autoInstallOnAppQuit = true;
+    updater.autoInstallOnAppQuit = false;
     if (this.feedUrl) {
       updater.setFeedURL({ provider: "generic", url: this.feedUrl });
     }

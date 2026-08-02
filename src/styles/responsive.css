@@ -1,0 +1,481 @@
+@media (max-width: 1120px) {
+  .workspace {
+    grid-template-columns: 230px minmax(400px, 1fr) 320px;
+  }
+
+  .topbar {
+    grid-template-columns: 230px 1fr auto;
+  }
+
+  .model-status {
+    display: none;
+  }
+
+  .page {
+    width: calc(100% - 32px);
+    padding-inline: 40px;
+  }
+}
+
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  .topbar {
+    grid-template-columns: auto 1fr auto;
+    padding: 0 10px;
+  }
+
+  .mobile-menu {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+  }
+
+  .brand {
+    padding: 0 8px;
+  }
+
+  .brand small,
+  .source-scope {
+    display: none;
+  }
+
+  .workspace {
+    height: calc(100dvh - 64px);
+    grid-template-columns: minmax(0, 1fr) 330px;
+  }
+
+  .library-panel {
+    width: 280px;
+    position: fixed;
+    inset: 64px auto 0 0;
+    z-index: 30;
+    transform: translateX(-100%);
+    box-shadow: 16px 0 40px rgba(34, 42, 35, 0.18);
+    transition: transform 200ms ease;
+  }
+
+  .library-panel.is-open {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 700px) {
+  .top-actions .primary-button {
+    width: 38px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .workspace {
+    height: auto;
+    min-height: calc(100dvh - 64px);
+    display: block;
+  }
+
+  .reader-panel {
+    min-height: calc(100dvh - 64px);
+  }
+
+  .study-panel {
+    min-height: 600px;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .page {
+    width: calc(100% - 20px);
+    margin: 10px;
+    padding: 34px 24px 42px;
+  }
+
+  .reader-toolbar {
+    padding: 0 12px;
+  }
+
+  .reader-tools span {
+    display: none;
+  }
+
+  .text-block p {
+    font-size: 15px;
+  }
+
+  .chapter-end {
+    grid-template-columns: auto 1fr;
+  }
+
+  .chapter-end button {
+    grid-column: 1 / -1;
+  }
+
+  .modal {
+    padding: 24px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 64px 0 0;
+    z-index: 29;
+    border: 0;
+    background: rgba(25, 31, 26, 0.34);
+  }
+
+  .library-panel {
+    z-index: 31;
+  }
+}
+
+@media (max-width: 700px) {
+  body {
+    overflow: hidden;
+  }
+
+  .workspace {
+    height: calc(100dvh - 120px);
+    min-height: 0;
+    display: block;
+  }
+
+  .reader-panel,
+  .study-panel {
+    display: none;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .reader-panel.mobile-active,
+  .study-panel.mobile-active {
+    display: flex;
+  }
+
+  .reader-panel.mobile-active {
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .study-panel.mobile-active {
+    border-top: 0;
+  }
+
+  .mobile-study-tabs {
+    height: 56px;
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 25;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--line);
+    background: rgba(251, 251, 247, 0.97);
+    backdrop-filter: blur(14px);
+  }
+
+  .mobile-study-tabs button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .mobile-study-tabs button.active {
+    color: var(--accent);
+  }
+
+  .status-toast {
+    bottom: 68px;
+  }
+
+  .chapter-search-bar {
+    top: 48px;
+    grid-template-columns: auto minmax(90px, 1fr) auto auto auto;
+  }
+
+  .chapter-search-bar > span {
+    display: none;
+  }
+
+  .library-panel {
+    bottom: 56px;
+  }
+
+  .sidebar-backdrop {
+    bottom: 56px;
+  }
+
+  .reading-preferences {
+    grid-template-columns: 1fr;
+  }
+
+  .top-actions,
+  .reader-tools {
+    gap: 4px;
+  }
+
+  .top-actions .icon-button,
+  .top-actions .primary-button,
+  .mobile-menu {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .reader-toolbar {
+    width: 100%;
+    min-width: 0;
+    gap: 4px;
+    padding-inline: 8px;
+  }
+
+  .breadcrumb {
+    flex: 1 1 auto;
+  }
+
+  .reader-tools {
+    flex: 0 0 auto;
+  }
+
+  .reader-tools button,
+  .reader-tools .enhance-chapter-button {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .reader-tools .enhance-chapter-button {
+    overflow: hidden;
+    font-size: 0;
+  }
+}
+
+/*
+ * Shared semantic surfaces. Components consume these tokens in every theme so
+ * explicit dark mode and system dark mode cannot drift apart.
+ */
+.app-shell {
+  color: var(--ink);
+  background: var(--app-bg);
+}
+
+.workspace,
+.library-panel,
+.study-panel {
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.study-plan {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.study-plan > button {
+  color: var(--ink);
+}
+
+.progress-track,
+.quiz-progress {
+  background: var(--surface-strong);
+}
+
+.reader-panel {
+  background-color: var(--app-bg);
+}
+
+.topbar,
+.reader-toolbar,
+.chapter-search-bar,
+.mobile-study-tabs {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--paper) 96%, transparent);
+  color: var(--ink);
+}
+
+.page,
+.modal,
+.note-editor,
+.note-list article,
+.chat-input,
+.settings-modal input,
+.settings-modal select,
+.quiz-modal > textarea,
+.library-search,
+.library-controls select {
+  border-color: var(--line);
+  background: var(--input-bg);
+  color: var(--ink);
+}
+
+.page {
+  background: var(--paper);
+}
+
+.secondary-button,
+.citation,
+.file-picker-button,
+.chapter-search-bar button {
+  border-color: var(--line);
+  background: var(--input-bg);
+  color: var(--ink);
+}
+
+.primary-button,
+.chat-input button,
+.chapter-end button,
+.file-picker-button {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.primary-button:hover,
+.file-picker-button:hover {
+  background: var(--accent-hover);
+}
+
+.overlay {
+  background: var(--overlay-bg);
+}
+
+.brand small,
+.source-scope span,
+.model-status,
+.panel-kicker,
+.book-meta small,
+.library-search,
+.trash-toggle,
+.nav-label,
+.chapter-index,
+.plan-row span,
+.study-history span,
+.page-heading p,
+.paragraph-number,
+.explain-block,
+.chapter-end span,
+.panel-tabs button,
+.bubble-status,
+.bubble-content p,
+.empty-notes,
+.modal > p,
+.settings-privacy-note,
+.connection-state,
+.model-list-state {
+  color: var(--muted);
+}
+
+.source-scope strong,
+.book-meta strong,
+.library-book-main,
+.chapter-entry button,
+.plan-title strong,
+.page-heading h1,
+.text-block p,
+.chapter-end strong,
+.empty-notes strong,
+.settings-modal label {
+  color: var(--ink);
+}
+
+.chapter-nav button.active .chapter-index {
+  color: var(--accent);
+}
+
+.library-book-main > span,
+.chapter-nav button.active > span,
+.plan-title > strong,
+.plan-row > strong,
+.breadcrumb > strong {
+  color: var(--ink);
+}
+
+.plan-row > span,
+.study-history > span {
+  color: var(--muted);
+}
+
+.reader-tools .enhance-chapter-button,
+.text-block-actions .locator,
+.text-block-actions .highlight-block {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.reader-tools .enhance-chapter-button:hover,
+.text-block-actions .locator:hover,
+.text-block-actions .highlight-block:hover {
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-strong));
+  color: var(--ink);
+}
+
+.enhance-state,
+.text-block.correspondence-highlight {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.settings-privacy-note,
+.connection-state {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.connection-state.online {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.chat-input input::placeholder,
+.library-search input::placeholder,
+.settings-modal input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.app-shell button,
+.app-shell input:not([type="file"]),
+.app-shell textarea,
+.app-shell select {
+  min-height: 36px;
+}
+
+.app-shell button {
+  min-width: 36px;
+}
+
+@media (max-width: 700px) {
+  .app-shell button,
+  .app-shell input:not([type="file"]),
+  .app-shell textarea,
+  .app-shell select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

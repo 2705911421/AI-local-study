@@ -22,6 +22,7 @@ describe("UpdateService", () => {
       packaged: true,
     });
 
+    expect(updater.autoInstallOnAppQuit).toBe(false);
     updater.emit("update-downloaded", { version: "0.2.0" });
     expect(service.status()).toMatchObject({
       status: "ready",

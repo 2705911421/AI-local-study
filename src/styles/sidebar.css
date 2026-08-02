@@ -1,0 +1,285 @@
+.library-panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  padding: 18px 14px 16px;
+  background: var(--paper-elevated);
+}
+
+.panel-kicker,
+.nav-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 6px 9px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panel-kicker span:last-child {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.book-selector {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-xs);
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.book-selector:hover {
+  border-color: var(--accent);
+  box-shadow:
+    var(--shadow-sm),
+    0 0 0 3px var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.book-spine {
+  width: 38px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px 8px 8px 4px;
+  background: var(--accent-gradient);
+  box-shadow:
+    inset 4px 0 0 rgba(255, 255, 255, 0.25),
+    var(--shadow-xs);
+  color: white;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.book-meta {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.book-meta strong,
+.book-meta small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-meta strong {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.book-meta small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.other-books {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.other-books button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12px;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.other-books button:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.other-books span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 18px;
+  scrollbar-width: thin;
+}
+
+.nav-label {
+  padding-bottom: 8px;
+}
+
+.chapter-nav button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.chapter-nav button:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.chapter-nav button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 650;
+  border-color: rgba(27, 90, 65, 0.15);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.chapter-index {
+  color: var(--muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+}
+
+.chapter-nav button.active .chapter-index {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.chapter-entry {
+  display: grid;
+}
+
+.chapter-sections {
+  display: grid;
+  gap: 3px;
+  margin: 3px 0 10px 24px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line-subtle);
+}
+
+.chapter-nav .chapter-sections button {
+  display: flex;
+  grid-template-columns: none;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chapter-nav .chapter-sections button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-nav .chapter-sections button small {
+  flex: 0 0 auto;
+  color: var(--muted);
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.chapter-nav .chapter-sections button.section-active {
+  background: var(--accent-soft-hover);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.study-plan {
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.plan-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.plan-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 13px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.plan-row strong {
+  color: var(--ink);
+}
+
+.progress-track {
+  height: 3px;
+  overflow: hidden;
+  margin-top: 6px;
+  border-radius: 3px;
+  background: var(--surface-strong);
+}
+
+.progress-track span,
+.quiz-progress span {
+  height: 100%;
+  display: block;
+  background: var(--accent);
+}
+
+.study-history {
+  display: flex;
+  justify-content: space-between;
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.study-history .has-due {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.study-plan > button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding: 8px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}

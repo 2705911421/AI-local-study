@@ -86,15 +86,17 @@ export function createAgentSource({
   const workspace = path.join(runtimeRoot, "empty-workspace");
   const images = path.join(runtimeRoot, "images");
   const runtimePreparations = new Map<AgentProvider, Promise<string>>();
+  let initialization: Promise<void> | undefined;
 
-  async function initialize(): Promise<void> {
-    await Promise.all([
+  function initialize(): Promise<void> {
+    initialization ??= Promise.all([
       mkdir(codexHome, { recursive: true }),
       mkdir(workspace, { recursive: true }),
       rm(images, { recursive: true, force: true }).then(() =>
         mkdir(images, { recursive: true }),
       ),
-    ]);
+    ]).then(() => undefined);
+    return initialization;
   }
 
   async function statuses(): Promise<ProviderStatus[]> {

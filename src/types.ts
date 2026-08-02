@@ -13,6 +13,8 @@ export interface TextBlock {
   smartTextSourceIds?: string[];
   smartTextOwnerId?: string;
   page?: number;
+  /** Exact PDF.js text-item membership for non-contiguous multi-column blocks. */
+  sourceItemIndexes?: number[];
   sourceItemStart?: number;
   sourceItemEnd?: number;
   locator: string;

@@ -30,7 +30,9 @@ afterEach(cleanup);
 describe("Workspace 区域渲染隔离", () => {
   it("聊天下输入不会提交教材侧栏和阅读区", () => {
     const renders: WorkspaceRegion[] = [];
-    const stopObserving = observeWorkspaceRenders((region) => renders.push(region));
+    const stopObserving = observeWorkspaceRenders((region) =>
+      renders.push(region),
+    );
     const { container } = render(<App />);
     renders.length = 0;
 
@@ -46,9 +48,13 @@ describe("Workspace 区域渲染隔离", () => {
 
   it("章节搜索不会提交伴学区", () => {
     const renders: WorkspaceRegion[] = [];
-    const stopObserving = observeWorkspaceRenders((region) => renders.push(region));
+    const stopObserving = observeWorkspaceRenders((region) =>
+      renders.push(region),
+    );
     const { container } = render(<App />);
-    fireEvent.click(container.querySelector('[data-testid="chapter-search-toggle"]')!);
+    fireEvent.click(
+      container.querySelector('[data-testid="chapter-search-toggle"]')!,
+    );
     const search = container.querySelector("#chapter-search");
     expect(search).toBeTruthy();
     renders.length = 0;
@@ -57,6 +63,23 @@ describe("Workspace 区域渲染隔离", () => {
 
     expect(renders).toContain("reader");
     expect(renders).not.toContain("assistant");
+    stopObserving();
+  });
+
+  it("阅读滚动不会提交伴学区和书库", async () => {
+    const renders: WorkspaceRegion[] = [];
+    const stopObserving = observeWorkspaceRenders((region) =>
+      renders.push(region),
+    );
+    const { container } = render(<App />);
+    await waitFor(() => expect(renders.length).toBeGreaterThan(4));
+    renders.length = 0;
+
+    fireEvent.scroll(container.querySelector(".reader-panel")!);
+
+    await waitFor(() => expect(renders).toContain("reader"));
+    expect(renders).not.toContain("assistant");
+    expect(renders).not.toContain("library");
     stopObserving();
   });
 });
@@ -142,6 +165,46 @@ describe("知页核心用户流程", () => {
     } finally {
       window.removeEventListener("unhandledrejection", unhandled);
     }
+  });
+
+  it("引用段落开始新笔记时不会覆盖正在编辑的旧笔记", async () => {
+    const repository = createMemoryStudyRepository({
+      notes: [
+        {
+          id: "existing-note",
+          documentId: "demo-discrete-math",
+          chapterId: "demo-c1",
+          text: "需要保留的旧笔记",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    });
+
+    render(<App studyRepository={repository} />);
+    fireEvent.click(
+      within(screen.getByLabelText("伴学与笔记")).getByRole("button", {
+        name: "笔记",
+      }),
+    );
+    expect(await screen.findByText("需要保留的旧笔记")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "编辑笔记" }));
+    expect(
+      screen.getByRole("button", { name: "更新笔记" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "记笔记" })[0]);
+
+    expect(
+      screen.getByRole("button", { name: "保存笔记" }),
+    ).toBeInTheDocument();
+    const editor =
+      screen.getByPlaceholderText("记录此刻的理解、疑问或待复习内容…");
+    fireEvent.change(editor, { target: { value: "引用段落后的新笔记" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存笔记" }));
+
+    expect(await screen.findByText("引用段落后的新笔记")).toBeInTheDocument();
+    expect(screen.getByText("需要保留的旧笔记")).toBeInTheDocument();
   });
 
   it("删除持久化失败时保留笔记和确认窗口", async () => {
@@ -244,6 +307,135 @@ describe("知页核心用户流程", () => {
     } finally {
       window.removeEventListener("unhandledrejection", unhandled);
     }
+  });
+
+  it("恢复上次教材、阅读进度与聊天记录", async () => {
+    const restoredDocument = {
+      id: "restored-document",
+      title: "恢复教材",
+      filename: "restored.epub",
+      kind: "epub" as const,
+      createdAt: 1,
+      chapters: [
+        {
+          id: "restored-chapter",
+          title: "恢复章节",
+          order: 0,
+          blocks: [
+            {
+              id: "restored-block",
+              chapterId: "restored-chapter",
+              text: "恢复后的正文",
+              locator: "恢复章节",
+              page: 3,
+            },
+          ],
+        },
+      ],
+    };
+    const repository = createMemoryStudyRepository({
+      documents: [restoredDocument],
+      readingStates: [
+        {
+          documentId: restoredDocument.id,
+          chapterId: "restored-chapter",
+          readerMode: "text",
+          page: 3,
+          blockId: "restored-block",
+          positionPercent: 37,
+          furthestPercent: 37,
+          rightTab: "mentor",
+          updatedAt: 10,
+        },
+      ],
+      chatSessions: [
+        {
+          documentId: restoredDocument.id,
+          messages: [
+            {
+              id: "restored-chat",
+              role: "assistant",
+              text: "恢复后的伴学记录",
+              status: "direct",
+            },
+          ],
+          updatedAt: 10,
+        },
+      ],
+    });
+
+    render(<App studyRepository={repository} />);
+
+    expect(await screen.findByText("恢复后的伴学记录")).toBeInTheDocument();
+    expect(screen.getByText("恢复后的正文")).toBeInTheDocument();
+    expect(screen.getByText("37%")).toBeInTheDocument();
+  });
+
+  it("重新打开章节练习时恢复未完成草稿", async () => {
+    const quizDocument = {
+      id: "quiz-document",
+      title: "练习教材",
+      filename: "quiz.epub",
+      kind: "epub" as const,
+      createdAt: 1,
+      chapters: [
+        {
+          id: "quiz-chapter",
+          title: "练习章节",
+          order: 0,
+          blocks: [
+            {
+              id: "quiz-block",
+              chapterId: "quiz-chapter",
+              text: "练习依据",
+              locator: "练习章节",
+            },
+          ],
+        },
+      ],
+    };
+    const repository = createMemoryStudyRepository({
+      documents: [quizDocument],
+      readingStates: [
+        {
+          documentId: quizDocument.id,
+          chapterId: "quiz-chapter",
+          readerMode: "text",
+          positionPercent: 0,
+          furthestPercent: 0,
+          rightTab: "mentor",
+          updatedAt: 10,
+        },
+      ],
+      quizAttempts: [
+        {
+          id: "quiz-draft",
+          documentId: quizDocument.id,
+          chapterId: "quiz-chapter",
+          items: [
+            {
+              id: "draft-item",
+              prompt: "草稿题目",
+              answer: "参考答案",
+              locator: "练习章节",
+            },
+          ],
+          currentIndex: 0,
+          draft: "尚未提交的答案",
+          scores: [null],
+          mastery: [null],
+          startedAt: 1,
+          updatedAt: 2,
+        },
+      ],
+    });
+
+    render(<App studyRepository={repository} />);
+    await screen.findByText("练习依据");
+    fireEvent.click(screen.getAllByRole("button", { name: "开始章节练习" })[0]);
+
+    expect(await screen.findByText("草稿题目")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveValue("尚未提交的答案");
   });
 
   it("慢速读取聊天记录时不会把占位消息提前写回", async () => {

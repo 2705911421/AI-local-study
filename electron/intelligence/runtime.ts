@@ -38,7 +38,7 @@ interface IntelligenceRuntimeOptions {
 }
 
 interface ActiveRequest {
-  id: string;
+  provider: ProviderId;
   controller: AbortController;
 }
 
@@ -46,7 +46,7 @@ export class IntelligenceRuntime {
   private readonly agentSource: AgentSource;
   private readonly settingsStore: SettingsStoreContract;
   private readonly log: SafeLog;
-  private readonly active = new Map<ProviderId, ActiveRequest>();
+  private readonly active = new Map<string, ActiveRequest>();
 
   constructor({ agentSource, settingsStore, log }: IntelligenceRuntimeOptions) {
     this.agentSource = agentSource;
@@ -100,9 +100,9 @@ export class IntelligenceRuntime {
 
   async invoke(request: unknown): Promise<IntelligenceResult> {
     validateRequest(request);
-    this.cancelProvider(request.provider);
+    this.cancel(request.id);
     const controller = new AbortController();
-    this.active.set(request.provider, { id: request.id, controller });
+    this.active.set(request.id, { provider: request.provider, controller });
     const timeoutMs =
       request.task === "answer" || request.task === "grade" ? 60_000 : 120_000;
     const timer = setTimeout(
@@ -144,25 +144,24 @@ export class IntelligenceRuntime {
       throw new Error(normalized.message, { cause: error });
     } finally {
       clearTimeout(timer);
-      const active = this.active.get(request.provider);
-      if (active?.id === request.id) this.active.delete(request.provider);
+      const active = this.active.get(request.id);
+      if (active?.controller === controller) this.active.delete(request.id);
     }
   }
 
   cancel(requestId: string): void {
-    for (const [provider, active] of this.active) {
-      if (active.id !== requestId) continue;
-      active.controller.abort(new DOMException("请求已取消", "AbortError"));
-      this.active.delete(provider);
-      break;
-    }
+    const active = this.active.get(requestId);
+    if (!active) return;
+    active.controller.abort(new DOMException("请求已取消", "AbortError"));
+    this.active.delete(requestId);
   }
 
   private cancelProvider(provider: ProviderId): void {
-    const active = this.active.get(provider);
-    if (!active) return;
-    active.controller.abort(new DOMException("请求已替换", "AbortError"));
-    this.active.delete(provider);
+    for (const [requestId, active] of this.active) {
+      if (active.provider !== provider) continue;
+      active.controller.abort(new DOMException("请求已取消", "AbortError"));
+      this.active.delete(requestId);
+    }
   }
 
   async cleanup(): Promise<void> {

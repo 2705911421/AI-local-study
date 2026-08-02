@@ -58,24 +58,35 @@ interface RetrievalCandidate {
 function bm25Scores(query: string, candidates: RetrievalCandidate[]): number[] {
   const queryTerms = terms(query);
   if (!queryTerms.length || !candidates.length) return candidates.map(() => 0);
+  const preparedCandidates = candidates.map((candidate) => ({
+    bodyTerms: terms(candidate.text),
+    titleTerms: terms(candidate.titleText),
+    normalizedBody: normalize(candidate.text),
+    normalizedTitle: normalize(candidate.titleText),
+    sourceText: candidate.text,
+  }));
   const averageLength =
-    candidates.reduce(
-      (total, candidate) => total + terms(candidate.text).length,
+    preparedCandidates.reduce(
+      (total, candidate) => total + candidate.bodyTerms.length,
       0,
-    ) / candidates.length;
+    ) / preparedCandidates.length;
+  const documentFrequencies = new Map(
+    queryTerms.map((term) => [
+      term,
+      preparedCandidates.filter(
+        (candidate) =>
+          candidate.normalizedBody.includes(term) ||
+          candidate.normalizedTitle.includes(term),
+      ).length,
+    ]),
+  );
   const k1 = 1.35;
   const b = 0.72;
 
-  return candidates.map((candidate) => {
-    const bodyTerms = terms(candidate.text);
-    const titleTerms = terms(candidate.titleText);
+  return preparedCandidates.map(({ bodyTerms, titleTerms, sourceText }) => {
     let score = 0;
     for (const term of queryTerms) {
-      const documentFrequency = candidates.filter(
-        (item) =>
-          normalize(item.text).includes(term) ||
-          normalize(item.titleText).includes(term),
-      ).length;
+      const documentFrequency = documentFrequencies.get(term) || 0;
       const inverseFrequency = Math.log(
         1 +
           (candidates.length - documentFrequency + 0.5) /
@@ -94,7 +105,7 @@ function bm25Scores(query: string, candidates: RetrievalCandidate[]): number[] {
     }
     if (
       /什么是|定义|含义|指什么/.test(query) &&
-      /是|指|定义|称为/.test(candidate.text)
+      /是|指|定义|称为/.test(sourceText)
     ) {
       score += 0.45;
     }

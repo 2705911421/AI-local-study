@@ -41,6 +41,33 @@ describe("batch generation", () => {
     expect(task).toHaveBeenCalledTimes(2);
   });
 
+  it("applies the request-per-minute limit to retries", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    try {
+      const starts: number[] = [];
+      const task = vi.fn(async () => {
+        starts.push(Date.now());
+        if (starts.length === 1) throw new Error("rate limited");
+        return "ok";
+      });
+
+      const queue = runBatchQueue([task], {
+        concurrency: 1,
+        requestsPerMinute: 60,
+        retries: 1,
+      });
+      await vi.advanceTimersByTimeAsync(999);
+      expect(starts).toEqual([0]);
+      await vi.advanceTimersByTimeAsync(1);
+
+      await expect(queue).resolves.toEqual(["ok"]);
+      expect(starts).toEqual([0, 1_000]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("stops claiming queued work after a terminal failure", async () => {
     const terminalError = new Error("generation failed");
     const first = vi.fn(async () => {

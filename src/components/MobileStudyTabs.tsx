@@ -12,6 +12,7 @@ export function MobileStudyTabs({
   return (
     <nav className="mobile-study-tabs" aria-label="学习视图">
       <button
+        type="button"
         className={value === "reader" ? "active" : ""}
         onClick={() => onChange("reader")}
       >
@@ -19,6 +20,7 @@ export function MobileStudyTabs({
         阅读
       </button>
       <button
+        type="button"
         className={value === "mentor" ? "active" : ""}
         onClick={() => onChange("mentor")}
       >
@@ -26,6 +28,7 @@ export function MobileStudyTabs({
         伴学
       </button>
       <button
+        type="button"
         className={value === "notes" ? "active" : ""}
         onClick={() => onChange("notes")}
       >

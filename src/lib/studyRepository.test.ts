@@ -174,4 +174,74 @@ describe("StudyRepository", () => {
     const restored = await target.restoreBackup(legacy);
     expect(restored.documents[0].id).toBe(documentA.id);
   });
+
+  it("拒绝声明解压尺寸超过上限的备份条目", async () => {
+    const zip = new JSZip();
+    zip.file("manifest.json", "{}");
+    const bytes = new Uint8Array(
+      await zip.generateAsync({ type: "arraybuffer", compression: "STORE" }),
+    );
+    const centralDirectory = findSignature(bytes, [0x50, 0x4b, 0x01, 0x02]);
+    new DataView(bytes.buffer).setUint32(
+      centralDirectory + 24,
+      256 * 1024 * 1024 + 1,
+      true,
+    );
+
+    await expect(
+      createMemoryStudyRepository().restoreBackup(new Blob([bytes])),
+    ).rejects.toThrow("超过 256 MB 上限");
+  });
+
+  it("合并同内容的独立教材时保留两边的关联记录", async () => {
+    const current = createMemoryStudyRepository({
+      documents: [{ ...documentA, contentHash: "same-content" }],
+      notes: [
+        {
+          id: "note-a",
+          documentId: documentA.id,
+          chapterId: documentA.chapters[0].id,
+          text: "A 的笔记",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    });
+    const incoming = createMemoryStudyRepository({
+      documents: [{ ...documentB, contentHash: "same-content" }],
+      notes: [
+        {
+          id: "note-b",
+          documentId: documentB.id,
+          chapterId: documentB.chapters[0].id,
+          text: "B 的笔记",
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      ],
+    });
+
+    const restored = await current.restoreBackup(
+      await incoming.exportPortableBackup(),
+      { mode: "merge" },
+    );
+
+    expect(restored.documents.map((document) => document.id).sort()).toEqual([
+      documentA.id,
+      documentB.id,
+    ]);
+    expect(restored.notes.map((note) => note.documentId).sort()).toEqual([
+      documentA.id,
+      documentB.id,
+    ]);
+  });
 });
+
+function findSignature(bytes: Uint8Array, signature: number[]): number {
+  for (let index = 0; index <= bytes.length - signature.length; index += 1) {
+    if (signature.every((value, offset) => bytes[index + offset] === value)) {
+      return index;
+    }
+  }
+  throw new Error("ZIP signature not found");
+}

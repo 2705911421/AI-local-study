@@ -61,15 +61,21 @@ export async function runBatchQueue<T>(
   let nextStartAt = 0;
   let failure: unknown;
 
+  const waitForRateLimit = async () => {
+    const now = Date.now();
+    const startAt = Math.max(now, nextStartAt);
+    nextStartAt = startAt + minimumInterval;
+    const delay = startAt - now;
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+  };
+
   const worker = async () => {
     while (cursor < tasks.length && !failure) {
       const index = cursor++;
-      const delay = Math.max(0, nextStartAt - Date.now());
-      nextStartAt = Math.max(Date.now(), nextStartAt) + minimumInterval;
-      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
       let attempt = 0;
       while (true) {
         try {
+          await waitForRateLimit();
           const result = await tasks[index]();
           results[index] = result;
           onResult?.(result, index);

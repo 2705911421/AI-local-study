@@ -1,4 +1,5 @@
 node_modules/
+.tmp-preview/
 dist/
 dist-electron/
 coverage/
@@ -8,11 +9,14 @@ release/
 artifacts/
 output/
 test-results/
+playwright-report/
 .playwright-cli/
 .playwright-mcp/
 .wrangler/
 .reasonix/
+reasonix.toml
 .openai/*.tar.gz
+*.log
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts

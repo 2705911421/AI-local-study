@@ -2,10 +2,26 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
+  useState,
   type ReactNode,
 } from "react";
-import type { WorkspaceRuntime } from "./WorkspaceRuntimeContext";
+import type { StudyNote } from "../types";
+import type { WorkspaceRuntime } from "./WorkspaceRuntime";
+import { useNoteManager } from "./operations/assistant";
+
+function useStableCallback<T extends (...args: never[]) => unknown>(
+  callback: T,
+): T {
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+  return useCallback(
+    ((...args: Parameters<T>) => callbackRef.current(...args)) as T,
+    [],
+  );
+}
 
 type ShellDomain = Pick<
   WorkspaceRuntime,
@@ -26,9 +42,7 @@ type LibraryDomain = Pick<
   | "trashedDocuments"
   | "activeDocument"
   | "activeChapter"
-  | "bookSearch"
-  | "bookSort"
-  | "showTrash"
+  | "furthestPercent"
   | "storageUsage"
   | "importState"
   | "importError"
@@ -37,9 +51,6 @@ type LibraryDomain = Pick<
   | "importOcrLanguages"
   | "pendingDeleteDocumentId"
 > & {
-  setBookQuery: (query: string) => void;
-  changeBookSort: (sort: WorkspaceRuntime["bookSort"]) => void;
-  toggleTrash: () => void;
   requestDocumentDelete: (documentId: string | null) => void;
   configureImportOcr: (enabled: boolean) => void;
   configureImportLanguages: (languages: string[]) => void;
@@ -57,9 +68,6 @@ type ReaderDomain = Pick<
   | "selectedBlockIds"
   | "furthestPercent"
   | "readingStates"
-  | "searchOpen"
-  | "chapterSearch"
-  | "searchIndex"
   | "highlighterMode"
   | "highlights"
   | "isEnhancing"
@@ -69,9 +77,6 @@ type ReaderDomain = Pick<
 > & {
   isExplainingImage: boolean;
   changeMode: (mode: WorkspaceRuntime["readerMode"]) => void;
-  openSearch: (open: boolean) => void;
-  changeSearch: (query: string) => void;
-  changeSearchIndex: (index: number) => void;
   toggleHighlighter: () => void;
   toggleSelection: () => void;
   setSelectionMode: (enabled: boolean) => void;
@@ -84,33 +89,29 @@ type ReaderDomain = Pick<
 
 type AssistantDomain = Pick<
   WorkspaceRuntime,
-  | "query"
-  | "messages"
-  | "chatHydratingDocumentId"
-  | "isThinking"
-  | "searchScope"
+  "messages" | "chatHydratingDocumentId" | "isThinking"
 > & {
-  changeQuery: (query: string) => void;
-  changeSearchScope: (scope: WorkspaceRuntime["searchScope"]) => void;
   cancelQuestion: () => void;
 };
 
-type NotesDomain = Pick<
-  WorkspaceRuntime,
-  | "notes"
-  | "noteDraft"
-  | "noteQuote"
-  | "noteError"
-  | "editingNoteId"
-  | "noteSearch"
-  | "pendingDeleteNoteId"
-> & {
-  changeDraft: (draft: string) => void;
-  changeSearch: (query: string) => void;
-  cancelEditing: () => void;
+type NoteEditorSession = {
+  editingNoteId: string | null;
+  initialDraft: string;
+  revision: number;
+};
+
+type NotesDomain = Pick<WorkspaceRuntime, "notes"> & {
+  noteQuote: string;
+  pendingDeleteNoteId: string | null;
+  editor: NoteEditorSession;
   requestNoteDelete: (noteId: string | null) => void;
-  startNote: (quote: string) => void;
+  startNewNote: (quote: string) => void;
+  editNote: (note: StudyNote) => void;
+  cancelEditing: () => void;
   clearQuote: () => void;
+  saveNote: (draft: string) => Promise<boolean>;
+  deleteNote: (noteId: string) => Promise<void>;
+  exportNotes: () => void;
 };
 
 type LearningDomain = Pick<
@@ -194,7 +195,7 @@ export function usePreferences() {
   return useRequiredContext(PreferencesContext, "usePreferences");
 }
 
-export function WorkspaceDomainProviders({
+export function WorkspaceProvider({
   runtime,
   children,
 }: {
@@ -204,7 +205,6 @@ export function WorkspaceDomainProviders({
   const {
     setOverlay,
     setSidebarOpen,
-    setShowTrash,
     importControllerRef,
     highlighterMode,
     setHighlighterMode,
@@ -212,15 +212,28 @@ export function WorkspaceDomainProviders({
     setSelectionMode,
     setSelectedBlockIds,
     setEnhanceError,
-    setEditingNoteId,
-    setNoteDraft,
-    setNoteQuote,
-    setNoteError,
     setConfig,
     setModelOnline,
     setModelOptions,
     setModelListState,
   } = runtime;
+  const [noteQuote, setNoteQuote] = useState("");
+  const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(
+    null,
+  );
+  const [noteEditor, setNoteEditor] = useState<NoteEditorSession>({
+    editingNoteId: null,
+    initialDraft: "",
+    revision: 0,
+  });
+  const {
+    addNote,
+    deleteNote: deleteStoredNote,
+    exportNotes,
+  } = useNoteManager(runtime);
+  const stableAddNote = useStableCallback(addNote);
+  const stableDeleteStoredNote = useStableCallback(deleteStoredNote);
+  const stableExportNotes = useStableCallback(exportNotes);
   const closeOverlay = useCallback(() => setOverlay(null), [setOverlay]);
   const toggleSidebar = useCallback(
     () => setSidebarOpen((open) => !open),
@@ -229,10 +242,6 @@ export function WorkspaceDomainProviders({
   const closeSidebar = useCallback(
     () => setSidebarOpen(false),
     [setSidebarOpen],
-  );
-  const toggleTrash = useCallback(
-    () => setShowTrash((visible) => !visible),
-    [setShowTrash],
   );
   const cancelImport = useCallback(
     () => importControllerRef.current?.abort(),
@@ -263,22 +272,58 @@ export function WorkspaceDomainProviders({
       ),
     [setSelectedBlockIds],
   );
-  const cancelEditing = useCallback(() => {
-    setEditingNoteId(null);
-    setNoteDraft("");
-    setNoteQuote("");
-    setNoteError("");
-  }, [setEditingNoteId, setNoteDraft, setNoteError, setNoteQuote]);
   const clearQuote = useCallback(() => setNoteQuote(""), [setNoteQuote]);
-  const startNote = useCallback(
+  const resetNoteEditor = useCallback(() => {
+    setNoteQuote("");
+    setNoteEditor((current) => ({
+      editingNoteId: null,
+      initialDraft: "",
+      revision: current.revision + 1,
+    }));
+  }, []);
+  const startNewNote = useCallback(
     (quote: string) => {
       setNoteQuote(quote);
-      setNoteDraft("");
-      setEditingNoteId(null);
-      setNoteError("");
+      setNoteEditor((current) => ({
+        editingNoteId: null,
+        initialDraft: "",
+        revision: current.revision + 1,
+      }));
     },
-    [setEditingNoteId, setNoteDraft, setNoteError, setNoteQuote],
+    [setNoteQuote],
   );
+  const editNote = useCallback((note: StudyNote) => {
+    setNoteQuote(note.quote || "");
+    setNoteEditor((current) => ({
+      editingNoteId: note.id,
+      initialDraft: note.text,
+      revision: current.revision + 1,
+    }));
+  }, []);
+  const saveNote = useCallback(
+    async (draft: string) => {
+      const saved = await stableAddNote({
+        draft,
+        editingNoteId: noteEditor.editingNoteId,
+        quote: noteQuote,
+      });
+      if (saved) resetNoteEditor();
+      return saved;
+    },
+    [noteEditor.editingNoteId, noteQuote, resetNoteEditor, stableAddNote],
+  );
+  const deleteNote = useCallback(
+    async (noteId: string) => {
+      if (await stableDeleteStoredNote(noteId)) {
+        setPendingDeleteNoteId(null);
+      }
+    },
+    [stableDeleteStoredNote],
+  );
+  useEffect(() => {
+    resetNoteEditor();
+    setPendingDeleteNoteId(null);
+  }, [runtime.activeChapter.id, runtime.activeDocument.id, resetNoteEditor]);
   const chooseModel = useCallback(
     (model: string) => setConfig((current) => ({ ...current, model })),
     [setConfig],
@@ -325,9 +370,7 @@ export function WorkspaceDomainProviders({
       trashedDocuments: runtime.trashedDocuments,
       activeDocument: runtime.activeDocument,
       activeChapter: runtime.activeChapter,
-      bookSearch: runtime.bookSearch,
-      bookSort: runtime.bookSort,
-      showTrash: runtime.showTrash,
+      furthestPercent: runtime.furthestPercent,
       storageUsage: runtime.storageUsage,
       importState: runtime.importState,
       importError: runtime.importError,
@@ -335,9 +378,6 @@ export function WorkspaceDomainProviders({
       importWithOcr: runtime.importWithOcr,
       importOcrLanguages: runtime.importOcrLanguages,
       pendingDeleteDocumentId: runtime.pendingDeleteDocumentId,
-      setBookQuery: runtime.setBookSearch,
-      changeBookSort: runtime.setBookSort,
-      toggleTrash,
       requestDocumentDelete: runtime.setPendingDeleteDocumentId,
       configureImportOcr: runtime.setImportWithOcr,
       configureImportLanguages: runtime.setImportOcrLanguages,
@@ -346,25 +386,20 @@ export function WorkspaceDomainProviders({
     [
       runtime.activeChapter,
       runtime.activeDocument,
-      runtime.bookSearch,
-      runtime.bookSort,
       runtime.documents,
+      runtime.furthestPercent,
       runtime.importError,
       runtime.importOcrLanguages,
       runtime.importProgress,
       runtime.importState,
       runtime.importWithOcr,
       runtime.pendingDeleteDocumentId,
-      runtime.setBookSearch,
-      runtime.setBookSort,
       runtime.setImportOcrLanguages,
       runtime.setImportWithOcr,
       runtime.setPendingDeleteDocumentId,
-      runtime.showTrash,
       runtime.storageUsage,
       runtime.trashedDocuments,
       cancelImport,
-      toggleTrash,
     ],
   );
   const reader = useMemo<ReaderDomain>(
@@ -378,9 +413,6 @@ export function WorkspaceDomainProviders({
       selectedBlockIds: runtime.selectedBlockIds,
       furthestPercent: runtime.furthestPercent,
       readingStates: runtime.readingStates,
-      searchOpen: runtime.searchOpen,
-      chapterSearch: runtime.chapterSearch,
-      searchIndex: runtime.searchIndex,
       highlighterMode: runtime.highlighterMode,
       highlights: runtime.highlights,
       isEnhancing: runtime.isEnhancing,
@@ -391,9 +423,6 @@ export function WorkspaceDomainProviders({
         runtime.isThinking &&
         runtime.imageExplanationControllerRef.current !== null,
       changeMode: runtime.setReaderMode,
-      openSearch: runtime.setSearchOpen,
-      changeSearch: runtime.setChapterSearch,
-      changeSearchIndex: runtime.setSearchIndex,
       toggleHighlighter,
       toggleSelection,
       setSelectionMode: runtime.setSelectionMode,
@@ -404,7 +433,6 @@ export function WorkspaceDomainProviders({
       toggleBlockSelection,
     }),
     [
-      runtime.chapterSearch,
       runtime.currentBlockId,
       runtime.currentTextPage,
       runtime.enhanceError,
@@ -420,16 +448,11 @@ export function WorkspaceDomainProviders({
       runtime.pdfFocusPage,
       runtime.readerMode,
       runtime.readingStates,
-      runtime.searchIndex,
-      runtime.searchOpen,
       runtime.selectedBlockIds,
       runtime.selectionMode,
-      runtime.setChapterSearch,
       runtime.setCurrentBlockId,
       runtime.setCurrentTextPage,
       runtime.setReaderMode,
-      runtime.setSearchIndex,
-      runtime.setSearchOpen,
       runtime.setSelectionMode,
       clearEnhancementError,
       clearSelection,
@@ -440,56 +463,45 @@ export function WorkspaceDomainProviders({
   );
   const assistant = useMemo<AssistantDomain>(
     () => ({
-      query: runtime.query,
       messages: runtime.messages,
       chatHydratingDocumentId: runtime.chatHydratingDocumentId,
       isThinking: runtime.isThinking,
-      searchScope: runtime.searchScope,
-      changeQuery: runtime.setQuery,
-      changeSearchScope: runtime.setSearchScope,
       cancelQuestion: () => runtime.questionControllerRef.current?.abort(),
     }),
     [
       runtime.chatHydratingDocumentId,
       runtime.isThinking,
       runtime.messages,
-      runtime.query,
       runtime.questionControllerRef,
-      runtime.searchScope,
-      runtime.setQuery,
-      runtime.setSearchScope,
     ],
   );
   const notes = useMemo<NotesDomain>(
     () => ({
       notes: runtime.notes,
-      noteDraft: runtime.noteDraft,
-      noteQuote: runtime.noteQuote,
-      noteError: runtime.noteError,
-      editingNoteId: runtime.editingNoteId,
-      noteSearch: runtime.noteSearch,
-      pendingDeleteNoteId: runtime.pendingDeleteNoteId,
-      changeDraft: runtime.setNoteDraft,
-      changeSearch: runtime.setNoteSearch,
-      cancelEditing,
-      requestNoteDelete: runtime.setPendingDeleteNoteId,
+      noteQuote,
+      pendingDeleteNoteId,
+      editor: noteEditor,
+      requestNoteDelete: setPendingDeleteNoteId,
       clearQuote,
-      startNote,
+      startNewNote,
+      editNote,
+      cancelEditing: resetNoteEditor,
+      saveNote,
+      deleteNote,
+      exportNotes: stableExportNotes,
     }),
     [
-      runtime.editingNoteId,
-      runtime.noteDraft,
-      runtime.noteError,
-      runtime.noteQuote,
-      runtime.noteSearch,
       runtime.notes,
-      runtime.pendingDeleteNoteId,
-      runtime.setNoteDraft,
-      runtime.setNoteSearch,
-      runtime.setPendingDeleteNoteId,
-      cancelEditing,
+      noteQuote,
+      pendingDeleteNoteId,
+      noteEditor,
       clearQuote,
-      startNote,
+      startNewNote,
+      editNote,
+      resetNoteEditor,
+      saveNote,
+      deleteNote,
+      stableExportNotes,
     ],
   );
   const learning = useMemo<LearningDomain>(

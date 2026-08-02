@@ -122,7 +122,7 @@ export function PdfReader({
         setDocument(loadedDocument);
         setTotalPages(loadedDocument.numPages);
         setStatus("ready");
-      } catch (error) {
+      } catch {
         if (!cancelled) setStatus("error");
       }
     })();
@@ -204,7 +204,12 @@ export function PdfReader({
       const regions: TextRegion[] = [];
       blocks.forEach((block) => {
         let matchingItems: typeof rangedItems;
-        if (
+        if (block.sourceItemIndexes?.length) {
+          const sourceIndexes = new Set(block.sourceItemIndexes);
+          matchingItems = rangedItems.filter((item) =>
+            sourceIndexes.has(item.sourceIndex),
+          );
+        } else if (
           typeof block.sourceItemStart === "number" &&
           typeof block.sourceItemEnd === "number"
         ) {
@@ -336,7 +341,7 @@ export function PdfReader({
       }
       renderTask?.cancel();
     };
-  }, [containerWidth, document, page, zoom]);
+  }, [blocks, containerWidth, document, page, zoom]);
 
   useEffect(() => {
     if (!highlightedBlockId || !viewportRef.current) return;
@@ -429,6 +434,7 @@ export function PdfReader({
       <div className="pdf-reader-controls">
         <div className="pdf-page-controls">
           <button
+            type="button"
             onClick={() => turnPage(-1)}
             disabled={safePage <= 1}
             aria-label="上一页"
@@ -452,6 +458,7 @@ export function PdfReader({
             <span>/ {totalPages || "…"}</span>
           </label>
           <button
+            type="button"
             onClick={() => turnPage(1)}
             disabled={Boolean(totalPages && safePage >= totalPages)}
             aria-label="下一页"
@@ -464,6 +471,7 @@ export function PdfReader({
           {selectionMode ? (
             <>
               <button
+                type="button"
                 className="pdf-generate-selected"
                 onClick={onGenerateSelected}
                 disabled={!selectedBlockIds.length || isEnhancing}
@@ -474,6 +482,7 @@ export function PdfReader({
                   : `生成已选 ${selectedBlockIds.length} 段`}
               </button>
               <button
+                type="button"
                 className="pdf-cancel-selection"
                 onClick={() => onSelectionModeChange(false)}
                 aria-label="取消内容选择"
@@ -484,6 +493,7 @@ export function PdfReader({
           ) : (
             <>
               <button
+                type="button"
                 className="pdf-text-bridge"
                 onClick={() =>
                   onShowText(safePage, highlightedBlockId || blocks[0]?.id)
@@ -493,6 +503,7 @@ export function PdfReader({
                 查看对应智能文本
               </button>
               <button
+                type="button"
                 className="pdf-select-content"
                 onClick={() => onSelectionModeChange(true)}
               >
@@ -503,6 +514,7 @@ export function PdfReader({
           )}
           {visionEnabled && !selectionMode && (
             <button
+              type="button"
               className="pdf-explain-image"
               disabled={isExplainingImage || status !== "ready"}
               onClick={() => {
@@ -521,6 +533,7 @@ export function PdfReader({
 
         <div className="pdf-zoom-controls">
           <button
+            type="button"
             onClick={() => setZoom((current) => Math.max(0.7, current - 0.1))}
             aria-label="缩小页面"
           >
@@ -528,6 +541,7 @@ export function PdfReader({
           </button>
           <span>{Math.round(zoom * 100)}%</span>
           <button
+            type="button"
             onClick={() => setZoom((current) => Math.min(1.8, current + 0.1))}
             aria-label="放大页面"
           >
@@ -553,7 +567,7 @@ export function PdfReader({
           </div>
         )}
         {status === "error" && (
-          <div className="pdf-error">
+          <div className="pdf-error" role="alert">
             <strong>这一页暂时无法显示</strong>
             <span>可以切换到智能文本继续阅读。</span>
           </div>
@@ -600,6 +614,7 @@ export function PdfReader({
               }
               return (
                 <button
+                  type="button"
                   key={region.blockId}
                   className={classNames.join(" ")}
                   data-original-block-id={region.blockId}

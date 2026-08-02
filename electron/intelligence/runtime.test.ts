@@ -14,16 +14,17 @@ function request(id) {
 }
 
 describe("IntelligenceRuntime", () => {
-  it("allows only one active request per provider and cancels the previous one", async () => {
+  it("keeps same-provider requests concurrent and cancels only the requested id", async () => {
+    const controllers = new Map();
+    const completions = new Map();
     const agentSource = {
       initialize: vi.fn(),
       statuses: vi.fn(() => []),
       cleanup: vi.fn(),
       invoke: vi.fn((value, controller) => {
-        if (value.id === "request-second") {
-          return Promise.resolve({ requestId: value.id, text: "ok" });
-        }
-        return new Promise((_resolve, reject) => {
+        controllers.set(value.id, controller);
+        return new Promise((resolve, reject) => {
+          completions.set(value.id, resolve);
           controller.signal.addEventListener("abort", () =>
             reject(controller.signal.reason),
           );
@@ -38,6 +39,14 @@ describe("IntelligenceRuntime", () => {
 
     const first = runtime.invoke(request("request-first"));
     const second = runtime.invoke(request("request-second"));
+
+    expect(controllers.get("request-first").signal.aborted).toBe(false);
+    expect(controllers.get("request-second").signal.aborted).toBe(false);
+    runtime.cancel("request-first");
+    completions.get("request-second")({
+      requestId: "request-second",
+      text: "ok",
+    });
 
     await expect(first).rejects.toThrow("请求已取消");
     await expect(second).resolves.toEqual({

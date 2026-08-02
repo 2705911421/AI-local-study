@@ -101,7 +101,7 @@ function createWindow(): void {
   if (process.env.VITE_DEV_SERVER_URL) {
     void window.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    void window.loadFile(path.join(here, "..", "dist", "index.html"));
+    void window.loadFile(path.join(here, "..", "..", "dist", "index.html"));
   }
 }
 

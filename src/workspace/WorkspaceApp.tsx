@@ -15,14 +15,12 @@ import type {
   TextBlock,
   UserPreferences,
 } from "../types";
-import {
-  WorkspaceRuntimeContext,
-  useWorkspaceRuntime,
-  type MobileStudyView,
-  type Overlay,
-  type RightTab,
-  type SearchScope,
-} from "./WorkspaceRuntimeContext";
+import type {
+  WorkspaceRuntime,
+  MobileStudyView,
+  Overlay,
+  RightTab,
+} from "./WorkspaceRuntime";
 import type { ReviewQueueItem } from "../components/ReviewDialog";
 import { WorkspaceTopbar } from "../components/workspace/WorkspaceTopbar";
 import { WorkspaceOverlays } from "../components/workspace/WorkspaceOverlays";
@@ -46,18 +44,15 @@ import {
   type StudyRepository,
   type WorkspaceSnapshot,
 } from "../lib/studyRepository";
-import {
-  usePersistence,
-  useDocumentManager,
-  useChat,
-  useNoteManager,
-  useQuiz,
-  useModelConfig,
-  useImporter,
-  useEnhancement,
-  useReaderNav,
-} from "../hooks/useAppHooks";
-import { WorkspaceDomainProviders } from "./WorkspaceDomains";
+import { usePersistence } from "./operations/persistence";
+import { useDocumentManager } from "./operations/documents";
+import { useChat } from "./operations/assistant";
+import { useQuiz } from "./operations/learning";
+import { useModelConfig } from "./operations/intelligence";
+import { useImporter } from "./operations/importer";
+import { useEnhancement } from "./operations/enhancement";
+import { useReaderNav } from "./operations/reader";
+import { useNotes, WorkspaceProvider } from "./WorkspaceDomains";
 
 function readSetting(key: string): string | null {
   try {
@@ -100,6 +95,17 @@ const defaultConfig: LlmConfig = {
 
 const defaultRepository = createBrowserStudyRepository();
 
+function useStableCallback<T extends (...args: never[]) => unknown>(
+  callback: T,
+): T {
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+  return useCallback(
+    ((...args: Parameters<T>) => callbackRef.current(...args)) as T,
+    [],
+  );
+}
+
 function getWelcomeMessage(document: StudyDocument): ChatMessage {
   return {
     id: "welcome",
@@ -115,8 +121,7 @@ function makeQuiz(chapter: Chapter): QuizItem[] {
 
 // ─── Inner App (consumes hooks) ─────────────────────────────────────
 
-function AppInner() {
-  const ctx = useWorkspaceRuntime();
+function AppInner({ runtime: ctx }: { runtime: WorkspaceRuntime }) {
   const {
     repository,
     documents,
@@ -171,7 +176,6 @@ function AppInner() {
     quizMastery,
     quizAttemptId,
     quiz,
-    chapterSearch,
     furthestPercent,
     setFurthestPercent,
     notice,
@@ -190,7 +194,8 @@ function AppInner() {
   } = ctx;
 
   // ── Hooks ──
-  const { persistCommand, persistInBackground } = usePersistence();
+  const noteDomain = useNotes();
+  const { persistCommand, persistInBackground } = usePersistence(ctx);
   const {
     applyWorkspace,
     selectDocument,
@@ -200,20 +205,29 @@ function AppInner() {
     trashDocument,
     restoreDocument,
     emptyTrash,
-  } = useDocumentManager();
-  const { submitQuestion, copyMessage, setMessageFeedback } = useChat();
-  const { addNote, editNote, deleteNote, exportNotes } = useNoteManager();
-  const { openQuiz, gradeQuiz, nextQuiz, setCurrentMastery } = useQuiz(quiz);
+  } = useDocumentManager(ctx);
+  const stableSelectDocument = useStableCallback(selectDocument);
+  const stableSelectChapter = useStableCallback(selectChapter);
+  const stableSelectSection = useStableCallback(selectSection);
+  const stableRenameDocument = useStableCallback(renameDocument);
+  const stableRestoreDocument = useStableCallback(restoreDocument);
+  const stableEmptyTrash = useStableCallback(emptyTrash);
+  const { submitQuestion, copyMessage, setMessageFeedback } = useChat(ctx);
+  const { openQuiz, gradeQuiz, nextQuiz, setCurrentMastery } = useQuiz(
+    quiz,
+    ctx,
+  );
+  const stableOpenQuiz = useStableCallback(openQuiz);
   const { testModel, fetchModelOptions, saveSettings, changeAgentLogin } =
-    useModelConfig();
-  const { handleFile } = useImporter();
+    useModelConfig(ctx);
+  const { handleFile } = useImporter(ctx, stableSelectDocument);
   const {
     enhanceCurrentChapter,
     enhanceSelectedBlocks,
     rebuildActiveDocumentSegments,
     explainCurrentPageImage,
     cancelEnhancement,
-  } = useEnhancement();
+  } = useEnhancement(ctx);
 
   // ── Derived values (with useMemo — P0-3 fixes) ──
   // These must be computed BEFORE hooks that depend on them.
@@ -227,16 +241,6 @@ function AppInner() {
         item.chapterId === activeChapterIdMemo,
     );
   }, [highlights, activeDocumentIdMemo, activeChapterIdMemo]);
-
-  const searchResults = useMemo(() => {
-    const normalized = chapterSearch.trim().toLocaleLowerCase("zh-CN");
-    if (!normalized) return [];
-    return activeChapter.blocks.filter((block) =>
-      (block.smartText || block.text)
-        .toLocaleLowerCase("zh-CN")
-        .includes(normalized),
-    );
-  }, [activeChapter.blocks, chapterSearch]);
 
   const allBlocks = useMemo(
     () => activeDocument.chapters.flatMap((chapter) => chapter.blocks),
@@ -558,7 +562,7 @@ function AppInner() {
     openCitation,
     toggleHighlight,
     goToSearchResult,
-  } = useReaderNav({ searchResults, chapterHighlights });
+  } = useReaderNav({ chapterHighlights }, ctx);
 
   const openAnswerCitation = useCallback(
     (citation: import("../types").Citation) => {
@@ -1071,57 +1075,53 @@ function AppInner() {
   return (
     <div className="app-shell">
       <WorkspaceTopbar onOpenHome={() => selectDocument(demoDocument)} />
-        <div className="workspace">
-          <LibrarySidebar
-            visiblePdfPage={visiblePdfPage}
-            dueReviewCount={dueReviewCount}
-            onSelectDocument={selectDocument}
-            onRenameDocument={renameDocument}
-            onRestoreDocument={restoreDocument}
-            onEmptyTrash={emptyTrash}
-            onSelectChapter={selectChapter}
-            onSelectSection={selectSection}
-            onOpenQuiz={openQuiz}
-          />
+      <div className="workspace">
+        <LibrarySidebar
+          visiblePdfPage={visiblePdfPage}
+          dueReviewCount={dueReviewCount}
+          onSelectDocument={stableSelectDocument}
+          onRenameDocument={stableRenameDocument}
+          onRestoreDocument={stableRestoreDocument}
+          onEmptyTrash={stableEmptyTrash}
+          onSelectChapter={stableSelectChapter}
+          onSelectSection={stableSelectSection}
+          onOpenQuiz={stableOpenQuiz}
+        />
 
-          <ReaderPane
-            containerRef={readerRef}
-            visiblePdfPage={visiblePdfPage}
-            visiblePdfBlocks={visiblePdfBlocks}
-            searchResults={searchResults}
-            chapterHighlights={chapterHighlights}
-            onScroll={handleReaderScroll}
-            onRebuildSegments={rebuildActiveDocumentSegments}
-            onShowOriginalPage={showOriginalPage}
-            onShowTextForPage={showTextForPage}
-            onEnhanceChapter={enhanceCurrentChapter}
-            onCancelEnhancement={cancelEnhancement}
-            onGoToSearchResult={goToSearchResult}
-            onMergeSegments={mergeSelectedSegments}
-            onSplitSegment={splitSelectedSegment}
-            onToggleTable={toggleSelectedTable}
-            onRestoreSegments={restoreOriginalSegments}
-            onSyncPdfPage={syncPdfPage}
-            onEnhanceSelected={enhanceSelectedBlocks}
-            onExplainPageImage={explainCurrentPageImage}
-            onToggleHighlight={toggleHighlight}
-            onSubmitQuestion={submitQuestion}
-            onOpenQuiz={openQuiz}
-          />
+        <ReaderPane
+          containerRef={readerRef}
+          visiblePdfPage={visiblePdfPage}
+          visiblePdfBlocks={visiblePdfBlocks}
+          chapterHighlights={chapterHighlights}
+          onScroll={handleReaderScroll}
+          onRebuildSegments={rebuildActiveDocumentSegments}
+          onShowOriginalPage={showOriginalPage}
+          onShowTextForPage={showTextForPage}
+          onEnhanceChapter={enhanceCurrentChapter}
+          onCancelEnhancement={cancelEnhancement}
+          onGoToSearchResult={goToSearchResult}
+          onMergeSegments={mergeSelectedSegments}
+          onSplitSegment={splitSelectedSegment}
+          onToggleTable={toggleSelectedTable}
+          onRestoreSegments={restoreOriginalSegments}
+          onSyncPdfPage={syncPdfPage}
+          onEnhanceSelected={enhanceSelectedBlocks}
+          onExplainPageImage={explainCurrentPageImage}
+          onToggleHighlight={toggleHighlight}
+          onSubmitQuestion={submitQuestion}
+          onOpenQuiz={stableOpenQuiz}
+        />
 
-          <StudyPanel
-            chatEndRef={chatEndRef}
-            chapterHighlights={chapterHighlights}
-            onOpenAnswerCitation={openAnswerCitation}
-            onOpenCitation={openCitation}
-            onCopyMessage={copyMessage}
-            onSetMessageFeedback={setMessageFeedback}
-            onSubmitQuestion={submitQuestion}
-            onAddNote={addNote}
-            onEditNote={editNote}
-            onExportNotes={exportNotes}
-          />
-        </div>
+        <StudyPanel
+          chatEndRef={chatEndRef}
+          chapterHighlights={chapterHighlights}
+          onOpenAnswerCitation={openAnswerCitation}
+          onOpenCitation={openCitation}
+          onCopyMessage={copyMessage}
+          onSetMessageFeedback={setMessageFeedback}
+          onSubmitQuestion={submitQuestion}
+        />
+      </div>
 
       <WorkspaceOverlays
         onFile={handleFile}
@@ -1139,7 +1139,7 @@ function AppInner() {
         reviewItems={dueReviewItems}
         onRateReview={rateReview}
         onOpenReviewEvidence={openReviewEvidence}
-        onDeleteNote={deleteNote}
+        onDeleteNote={noteDomain.deleteNote}
         onDeleteDocument={trashDocument}
       />
     </div>
@@ -1166,7 +1166,6 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
     isDesktopApp() ? "settings" : null,
   );
   const [rightTab, setRightTab] = useState<RightTab>("mentor");
-  const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     getWelcomeMessage(demoDocument),
   ]);
@@ -1190,11 +1189,7 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
     inputPricePerMillion: 0,
     outputPricePerMillion: 0,
   });
-  const [noteDraft, setNoteDraft] = useState("");
-  const [noteQuote, setNoteQuote] = useState("");
-  const [noteError, setNoteError] = useState("");
   const [isThinking, setIsThinking] = useState(false);
-  const [searchScope, setSearchScope] = useState<SearchScope>("document");
   const [importState, setImportState] = useState<
     "idle" | "parsing" | "done" | "error"
   >("idle");
@@ -1231,24 +1226,11 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
   const [quizScores, setQuizScores] = useState<Array<number | null>>([]);
   const [quizAttemptId, setQuizAttemptId] = useState<string | null>(null);
   const [quizItemsOverride, setQuizItemsOverride] = useState<QuizItem[]>([]);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [chapterSearch, setChapterSearch] = useState("");
-  const [searchIndex, setSearchIndex] = useState(0);
   const [highlighterMode, setHighlighterMode] = useState(false);
   const [currentBlockId, setCurrentBlockId] = useState<string | undefined>();
   const [furthestPercent, setFurthestPercent] = useState(0);
   const [notice, setNotice] = useState("");
-  const [bookSearch, setBookSearch] = useState("");
-  const [bookSort, setBookSort] = useState<"recent" | "name" | "created">(
-    "recent",
-  );
-  const [showTrash, setShowTrash] = useState(false);
   const [storageUsage, setStorageUsage] = useState("");
-  const [noteSearch, setNoteSearch] = useState("");
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(
-    null,
-  );
   const [pendingDeleteDocumentId, setPendingDeleteDocumentId] = useState<
     string | null
   >(null);
@@ -1266,17 +1248,6 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const highlightTimerRef = useRef<number | null>(null);
   const importCloseTimerRef = useRef<number | null>(null);
-  const persistenceNoticeAtRef = useRef(0);
-
-  const reportPersistenceFailure = useCallback(
-    (message: string, background = false) => {
-      const now = Date.now();
-      if (background && now - persistenceNoticeAtRef.current < 3200) return;
-      persistenceNoticeAtRef.current = now;
-      setNotice(message);
-    },
-    [setNotice],
-  );
   const questionControllerRef = useRef<AbortController | null>(null);
   const modelTestControllerRef = useRef<AbortController | null>(null);
   const modelListControllerRef = useRef<AbortController | null>(null);
@@ -1291,10 +1262,16 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
   const activeChapter =
     activeDocument.chapters.find((chapter) => chapter.id === activeChapterId) ||
     activeDocument.chapters[0];
+  const quiz = useMemo(
+    () =>
+      quizItemsOverride.length > 0
+        ? quizItemsOverride
+        : makeQuiz(activeChapter),
+    [activeChapter, quizItemsOverride],
+  );
 
   // ── Context value ──
-  const contextValue: import("./WorkspaceRuntimeContext").WorkspaceRuntime =
-    useMemo(
+  const contextValue: WorkspaceRuntime = useMemo(
     () => ({
       repository,
       notice,
@@ -1313,16 +1290,12 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       setOverlay,
       rightTab,
       setRightTab,
-      query,
-      setQuery,
       messages,
       setMessages,
       chatHydratingDocumentId,
       setChatHydratingDocumentId,
       isThinking,
       setIsThinking,
-      searchScope,
-      setSearchScope,
       notes,
       setNotes,
       highlights,
@@ -1337,16 +1310,6 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       setReadingStates,
       preferences,
       setPreferences,
-      noteDraft,
-      setNoteDraft,
-      noteQuote,
-      setNoteQuote,
-      noteError,
-      setNoteError,
-      editingNoteId,
-      setEditingNoteId,
-      noteSearch,
-      setNoteSearch,
       config,
       setConfig,
       modelOnline,
@@ -1399,32 +1362,15 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       setQuizMastery,
       quizAttemptId,
       setQuizAttemptId,
-      quiz:
-        quizItemsOverride.length > 0
-          ? quizItemsOverride
-          : makeQuiz(activeChapter),
+      quiz,
       quizItemsOverride,
       setQuizItemsOverride,
-      searchOpen,
-      setSearchOpen,
-      chapterSearch,
-      setChapterSearch,
-      searchIndex,
-      setSearchIndex,
       highlighterMode,
       setHighlighterMode,
       furthestPercent,
       setFurthestPercent,
-      bookSearch,
-      setBookSearch,
-      bookSort,
-      setBookSort,
-      showTrash,
-      setShowTrash,
       storageUsage,
       setStorageUsage,
-      pendingDeleteNoteId,
-      setPendingDeleteNoteId,
       pendingDeleteDocumentId,
       setPendingDeleteDocumentId,
       importState,
@@ -1441,7 +1387,6 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       chatEndRef,
       highlightTimerRef,
       importCloseTimerRef,
-      reportPersistenceFailure,
       questionControllerRef,
       modelTestControllerRef,
       modelListControllerRef,
@@ -1460,11 +1405,9 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       activeChapter,
       overlay,
       rightTab,
-      query,
       messages,
       chatHydratingDocumentId,
       isThinking,
-      searchScope,
       notes,
       highlights,
       quizAttempts,
@@ -1472,11 +1415,6 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       dailyMetrics,
       readingStates,
       preferences,
-      noteDraft,
-      noteQuote,
-      noteError,
-      editingNoteId,
-      noteSearch,
       config,
       modelOnline,
       modelSupportsVision,
@@ -1504,32 +1442,23 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       quizMastery,
       quizAttemptId,
       quizItemsOverride,
-      searchOpen,
-      chapterSearch,
-      searchIndex,
+      quiz,
       highlighterMode,
       furthestPercent,
-      bookSearch,
-      bookSort,
-      showTrash,
       storageUsage,
-      pendingDeleteNoteId,
       pendingDeleteDocumentId,
       importState,
       importError,
       importProgress,
       importWithOcr,
       importOcrLanguages,
-      reportPersistenceFailure,
     ],
   );
 
   return (
-    <WorkspaceRuntimeContext.Provider value={contextValue}>
-      <WorkspaceDomainProviders runtime={contextValue}>
-        <AppInner />
-      </WorkspaceDomainProviders>
-    </WorkspaceRuntimeContext.Provider>
+    <WorkspaceProvider runtime={contextValue}>
+      <AppInner runtime={contextValue} />
+    </WorkspaceProvider>
   );
 }
 

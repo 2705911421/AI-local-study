@@ -40,7 +40,10 @@ export const WorkspaceTopbar = memo(function WorkspaceTopbar({
           aria-label="返回知页首页"
         >
           <span className="brand-mark" aria-hidden="true">
-            <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
+            <img
+              src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`}
+              alt=""
+            />
           </span>
           <span>
             <strong>知页</strong>

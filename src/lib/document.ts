@@ -8,6 +8,8 @@ export const IMPORT_LIMITS = {
   epubSpineItems: 2_000,
 } as const;
 
+export const CURRENT_PDF_PARSER_VERSION = 4;
+
 function formatMiB(bytes: number): number {
   return Math.round(bytes / 1024 / 1024);
 }
@@ -128,11 +130,11 @@ function addEpubLocations(chapters: Chapter[]): Chapter[] {
     ...chapter,
     blocks: chapter.blocks.map((block) => {
       const virtualPage = Math.floor(offset / 800) + 1;
+      offset += block.text.length;
       const progressPercent = Math.min(
         100,
         Math.round((offset / totalCharacters) * 100),
       );
-      offset += block.text.length;
       return {
         ...block,
         virtualPage,
@@ -191,33 +193,62 @@ export function semanticPdfBlocks(
     line.push(item);
     lineGroups.set(key, line);
   });
-  let lines: PdfLine[] = [...lineGroups.values()]
-    .flatMap((items) => {
-      const sorted = [...items].sort((a, b) => a.x - b.x);
-      const cells: PositionedPdfItem[][] = [];
-      let cell: PositionedPdfItem[] = [];
-      sorted.forEach((item, index) => {
-        const previous = sorted[index - 1];
-        const previousEnd = previous
-          ? previous.x +
-            Math.max(
-              previous.width,
-              previous.text.length * previous.height * 0.45,
-            )
-          : 0;
-        if (
-          previous &&
-          item.x - previousEnd > Math.max(28, item.height * 3.2)
-        ) {
-          cells.push(cell);
-          cell = [];
-        }
-        cell.push(item);
-      });
-      if (cell.length) cells.push(cell);
-      const y = sorted.reduce((sum, item) => sum + item.y, 0) / sorted.length;
-      const height = Math.max(...sorted.map((item) => item.height));
-      if (cells.length >= 3) {
+  const rows = [...lineGroups.values()].map((items) => {
+    const sorted = [...items].sort((a, b) => a.x - b.x);
+    const cells: PositionedPdfItem[][] = [];
+    let cell: PositionedPdfItem[] = [];
+    sorted.forEach((item, index) => {
+      const previous = sorted[index - 1];
+      const previousEnd = previous
+        ? previous.x +
+          Math.max(
+            previous.width,
+            previous.text.length * previous.height * 0.45,
+          )
+        : 0;
+      if (previous && item.x - previousEnd > Math.max(28, item.height * 3.2)) {
+        cells.push(cell);
+        cell = [];
+      }
+      cell.push(item);
+    });
+    if (cell.length) cells.push(cell);
+    const y = sorted.reduce((sum, item) => sum + item.y, 0) / sorted.length;
+    const height = Math.max(...sorted.map((item) => item.height));
+    return { sorted, cells, y, height };
+  });
+  const repeatedProseLayouts = new Set<string>();
+  const rowsByLayout = new Map<string, typeof rows>();
+  rows
+    .filter((row) => row.cells.length >= 3)
+    .forEach((row) => {
+      const signature = row.cells
+        .map((cell) => Math.round(cell[0].x / 24))
+        .join(":");
+      const matching = rowsByLayout.get(signature) || [];
+      matching.push(row);
+      rowsByLayout.set(signature, matching);
+    });
+  rowsByLayout.forEach((matching, signature) => {
+    const cellTexts = matching.flatMap((row) =>
+      row.cells.map((cell) =>
+        cleanText(cell.map((item) => item.text).join("")),
+      ),
+    );
+    const averageLength =
+      cellTexts.reduce((total, text) => total + text.length, 0) /
+      Math.max(1, cellTexts.length);
+    if (matching.length >= 2 && averageLength >= 8) {
+      repeatedProseLayouts.add(signature);
+    }
+  });
+
+  let lines: PdfLine[] = rows
+    .flatMap(({ sorted, cells, y, height }) => {
+      const signature = cells
+        .map((cell) => Math.round(cell[0].x / 24))
+        .join(":");
+      if (cells.length >= 3 && !repeatedProseLayouts.has(signature)) {
         return [
           {
             text: cells
@@ -263,30 +294,36 @@ export function semanticPdfBlocks(
       lines.filter((line) => !line.table).map((line) => Math.round(line.x)),
     ),
   ].sort((a, b) => a - b);
-  let columnSplit: number | null = null;
-  let largestStartGap = 0;
+  const columnBoundaries: number[] = [];
   for (let index = 1; index < startPositions.length; index += 1) {
     const gap = startPositions[index] - startPositions[index - 1];
-    if (gap > largestStartGap) {
-      largestStartGap = gap;
-      columnSplit = (startPositions[index] + startPositions[index - 1]) / 2;
+    if (gap >= 90) {
+      columnBoundaries.push(
+        (startPositions[index] + startPositions[index - 1]) / 2,
+      );
     }
   }
-  if (largestStartGap < 90) columnSplit = null;
-  if (columnSplit !== null) {
-    const leftCount = lines.filter(
-      (line) => !line.table && line.x < columnSplit!,
-    ).length;
-    const rightCount = lines.filter(
-      (line) => !line.table && line.x >= columnSplit!,
-    ).length;
-    if (leftCount < 2 || rightCount < 2) columnSplit = null;
+  const columnForX = (x: number) =>
+    columnBoundaries.filter((boundary) => x >= boundary).length;
+  if (columnBoundaries.length) {
+    const columnCounts = new Map<number, number>();
+    lines
+      .filter((line) => !line.table)
+      .forEach((line) => {
+        const column = columnForX(line.x);
+        columnCounts.set(column, (columnCounts.get(column) || 0) + 1);
+      });
+    if (
+      columnCounts.size !== columnBoundaries.length + 1 ||
+      [...columnCounts.values()].some((count) => count < 2)
+    ) {
+      columnBoundaries.length = 0;
+    }
   }
   lines = lines
     .map((line) => ({
       ...line,
-      column:
-        columnSplit === null || line.table ? 0 : line.x < columnSplit ? 0 : 1,
+      column: line.table ? 0 : columnForX(line.x),
     }))
     .sort(
       (a, b) => (a.column || 0) - (b.column || 0) || b.y - a.y || a.x - b.x,
@@ -360,13 +397,17 @@ export function semanticPdfBlocks(
       const sourceIndexes = group.flatMap((line) =>
         line.items.map((item) => item.sourceIndex),
       );
+      const exactSourceIndexes = [...new Set(sourceIndexes)].sort(
+        (left, right) => left - right,
+      );
       return {
         id: `${chapterId}-p${pageNumber}-b${index}`,
         chapterId,
         text: group.reduce((text, line) => joinPdfLines(text, line.text), ""),
         page: pageNumber,
-        sourceItemStart: Math.min(...sourceIndexes),
-        sourceItemEnd: Math.max(...sourceIndexes) + 1,
+        sourceItemIndexes: exactSourceIndexes,
+        sourceItemStart: exactSourceIndexes[0],
+        sourceItemEnd: exactSourceIndexes.at(-1)! + 1,
         locator: `PDF 第 ${pageNumber} 页`,
         blockKind: (group.some((line) => line.table)
           ? "table"
@@ -541,7 +582,7 @@ async function parsePdf(
       filename: file.name,
       kind: "pdf",
       originalFile: file,
-      parserVersion: 3,
+      parserVersion: CURRENT_PDF_PARSER_VERSION,
       createdAt,
       updatedAt: createdAt,
       lastOpenedAt: createdAt,

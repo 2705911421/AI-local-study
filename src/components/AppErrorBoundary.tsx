@@ -52,8 +52,10 @@ export class AppErrorBoundary extends Component<
           教材和学习记录仍保存在本机。可以刷新页面重试，或导出不含教材内容的诊断信息。
         </p>
         <div>
-          <button onClick={() => location.reload()}>刷新页面</button>
-          <button onClick={this.exportDiagnostics}>
+          <button type="button" onClick={() => location.reload()}>
+            刷新页面
+          </button>
+          <button type="button" onClick={this.exportDiagnostics}>
             <DownloadSimple size={16} />
             导出诊断
           </button>

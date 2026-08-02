@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import {
@@ -19,7 +25,10 @@ describe("设置流程", () => {
   it("拒绝弱备份密码且不会导出备份", async () => {
     const memory = createMemoryStudyRepository();
     const exportBackup = vi.fn(memory.exportPortableBackup);
-    const repository: StudyRepository = { ...memory, exportPortableBackup: exportBackup };
+    const repository: StudyRepository = {
+      ...memory,
+      exportPortableBackup: exportBackup,
+    };
     render(<App studyRepository={repository} />);
 
     fireEvent.click(screen.getByRole("button", { name: "设置" }));

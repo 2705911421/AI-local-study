@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, type RefObject } from "react";
+import { memo, useEffect, useMemo, useState, type RefObject } from "react";
 import {
   Brain,
   Copy,
@@ -14,8 +14,8 @@ import {
   Trash,
   X,
 } from "@phosphor-icons/react";
-import type { ChatMessage, Citation, Highlight, StudyNote } from "../../types";
-import type { SearchScope } from "../../workspace/WorkspaceRuntimeContext";
+import type { ChatMessage, Citation, Highlight } from "../../types";
+import type { SearchScope } from "../../workspace/WorkspaceRuntime";
 import {
   useAssistant,
   useLibrary,
@@ -38,9 +38,6 @@ interface StudyPanelProps {
     reason?: FeedbackReason,
   ) => void;
   onSubmitQuestion: (preset?: string, scope?: SearchScope) => void;
-  onAddNote: () => void;
-  onEditNote: (note: StudyNote) => void;
-  onExportNotes: () => void;
 }
 
 export const StudyPanel = memo(function StudyPanel({
@@ -51,9 +48,6 @@ export const StudyPanel = memo(function StudyPanel({
   onCopyMessage,
   onSetMessageFeedback,
   onSubmitQuestion,
-  onAddNote,
-  onEditNote,
-  onExportNotes,
 }: StudyPanelProps) {
   markWorkspaceRender("assistant");
   const shell = useShell();
@@ -62,8 +56,15 @@ export const StudyPanel = memo(function StudyPanel({
   const notes = useNotes();
   const [query, setQuery] = useState("");
   const [searchScope, setSearchScope] = useState<SearchScope>("document");
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteError, setNoteError] = useState("");
+  const [noteSearch, setNoteSearch] = useState("");
+  useEffect(() => {
+    setNoteDraft(notes.editor.initialDraft);
+    setNoteError("");
+  }, [notes.editor.initialDraft, notes.editor.revision]);
   const chapterNotes = useMemo(() => {
-    const normalized = notes.noteSearch.trim().toLocaleLowerCase("zh-CN");
+    const normalized = noteSearch.trim().toLocaleLowerCase("zh-CN");
     return notes.notes.filter(
       (note) =>
         note.documentId === library.activeDocument.id &&
@@ -76,7 +77,7 @@ export const StudyPanel = memo(function StudyPanel({
   }, [
     library.activeChapter.id,
     library.activeDocument.id,
-    notes.noteSearch,
+    noteSearch,
     notes.notes,
   ]);
 
@@ -154,8 +155,12 @@ export const StudyPanel = memo(function StudyPanel({
                     </button>
                     <button
                       type="button"
-                      className={message.feedback === "helpful" ? "is-active" : ""}
-                      onClick={() => onSetMessageFeedback(message.id, "helpful")}
+                      className={
+                        message.feedback === "helpful" ? "is-active" : ""
+                      }
+                      onClick={() =>
+                        onSetMessageFeedback(message.id, "helpful")
+                      }
                       title="有帮助"
                       aria-label="标记回答有帮助"
                     >
@@ -285,29 +290,42 @@ export const StudyPanel = memo(function StudyPanel({
               </blockquote>
             )}
             <textarea
-              value={notes.noteDraft}
-              onChange={(event) => notes.changeDraft(event.target.value)}
+              value={noteDraft}
+              onChange={(event) => setNoteDraft(event.target.value)}
               placeholder="记录此刻的理解、疑问或待复习内容…"
             />
-            {notes.noteError && (
+            {noteError && (
               <div className="note-error" role="alert">
-                {notes.noteError}
+                {noteError}
               </div>
             )}
             <div className="note-editor-actions">
               <button
                 type="button"
                 className="primary-button"
-                onClick={onAddNote}
-                disabled={!notes.noteDraft.trim()}
+                onClick={() => {
+                  setNoteError("");
+                  void notes.saveNote(noteDraft).then((saved) => {
+                    if (saved) {
+                      setNoteDraft("");
+                    } else {
+                      setNoteError(
+                        "笔记保存失败：浏览器存储不可用或空间不足。",
+                      );
+                    }
+                  });
+                }}
+                disabled={!noteDraft.trim()}
               >
-                {notes.editingNoteId ? "更新笔记" : "保存笔记"}
+                {notes.editor.editingNoteId ? "更新笔记" : "保存笔记"}
               </button>
-              {notes.editingNoteId && (
+              {notes.editor.editingNoteId && (
                 <button
                   type="button"
                   className="secondary-button"
-                  onClick={notes.cancelEditing}
+                  onClick={() => {
+                    notes.cancelEditing();
+                  }}
                 >
                   取消编辑
                 </button>
@@ -317,15 +335,15 @@ export const StudyPanel = memo(function StudyPanel({
           <label className="note-search">
             <MagnifyingGlass size={14} />
             <input
-              value={notes.noteSearch}
-              onChange={(event) => notes.changeSearch(event.target.value)}
+              value={noteSearch}
+              onChange={(event) => setNoteSearch(event.target.value)}
               placeholder="搜索笔记"
             />
           </label>
           <button
             type="button"
             className="export-notes"
-            onClick={onExportNotes}
+            onClick={notes.exportNotes}
             disabled={!chapterNotes.length}
           >
             <DownloadSimple size={14} />
@@ -339,11 +357,15 @@ export const StudyPanel = memo(function StudyPanel({
                   <article className="note-card" key={note.id}>
                     <p>{note.text}</p>
                     <footer>
-                      <span>{new Date(note.updatedAt).toLocaleString("zh-CN")}</span>
+                      <span>
+                        {new Date(note.updatedAt).toLocaleString("zh-CN")}
+                      </span>
                       <span>
                         <button
                           type="button"
-                          onClick={() => onEditNote(note)}
+                          onClick={() => {
+                            notes.editNote(note);
+                          }}
                           aria-label="编辑笔记"
                         >
                           <PencilSimple size={13} />

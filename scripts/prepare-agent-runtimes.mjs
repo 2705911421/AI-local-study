@@ -36,5 +36,5 @@ for (const runtime of runtimes) {
   archive.directory(runtime.source, false);
   archive.finalize();
   await pipeline(archive, createWriteStream(target));
-  console.log(`Prepared ${target}`);
+  process.stdout.write(`Prepared ${target}\n`);
 }

@@ -6,7 +6,7 @@ import path from "node:path";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const output = path.join(os.tmpdir(), `zhiye-electron-builder-${process.pid}`);
-const artifacts = path.join(projectRoot, "artifacts");
+const artifacts = path.join(projectRoot, "artifacts", "desktop");
 const preparedRuntimes = path.join(projectRoot, "build", "runtimes");
 const builderCli = path.join(
   projectRoot,
@@ -114,8 +114,10 @@ try {
       "utf8",
     );
   }
-  console.log(`Desktop installer: ${path.join(artifacts, installerName)}`);
-  console.log(`SHA-256: ${digest}`);
+  process.stdout.write(
+    `Desktop installer: ${path.join(artifacts, installerName)}\n`,
+  );
+  process.stdout.write(`SHA-256: ${digest}\n`);
   if (allowUnsigned) {
     console.warn(
       "Unsigned QA build created. Do not distribute it as a public release.",

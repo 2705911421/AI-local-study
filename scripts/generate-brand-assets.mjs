@@ -7,12 +7,12 @@ const projectRoot = path.resolve(import.meta.dirname, "..");
 const source = path.join(projectRoot, "brand", "logo-mark.svg");
 const publicBrand = path.join(projectRoot, "public", "brand");
 const buildDirectory = path.join(projectRoot, "build");
-const artifactsDirectory = path.join(projectRoot, "artifacts");
+const previewDirectory = path.join(projectRoot, "output", "brand");
 
 await Promise.all([
   mkdir(publicBrand, { recursive: true }),
   mkdir(buildDirectory, { recursive: true }),
-  mkdir(artifactsDirectory, { recursive: true }),
+  mkdir(previewDirectory, { recursive: true }),
 ]);
 
 await Promise.all([
@@ -29,10 +29,12 @@ const icon512 = renderPng(image, 512);
 await Promise.all([
   writeFile(path.join(buildDirectory, "icon.png"), icon512),
   writeFile(path.join(buildDirectory, "icon.ico"), await pngToIco(pngs)),
-  writeFile(path.join(artifactsDirectory, "zhiye-logo-preview.png"), icon512),
+  writeFile(path.join(previewDirectory, "zhiye-logo-preview.png"), icon512),
 ]);
 
-console.log("Brand assets generated in build/, public/brand/, and artifacts/.");
+process.stdout.write(
+  "Brand assets generated in build/, public/brand/, and output/brand/.\n",
+);
 
 function renderPng(image, size) {
   const canvas = createCanvas(size, size);

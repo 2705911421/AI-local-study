@@ -415,10 +415,19 @@ async function importSnapshot(blob: Blob): Promise<WorkspaceSnapshot> {
   }
   const { default: JSZip } = await import("jszip");
   const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  assertArchiveSize(zip.files);
   const manifestFile = zip.file("manifest.json");
   if (!manifestFile) throw new Error("备份缺少 manifest.json");
+  const extractionBudget = { bytes: 0 };
   const manifest = JSON.parse(
-    await manifestFile.async("string"),
+    new TextDecoder().decode(
+      concatenateChunks(
+        await readArchiveEntry(
+          manifestFile as unknown as StreamableZipEntry,
+          extractionBudget,
+        ),
+      ),
+    ),
   ) as BackupManifest;
   if (
     ![1, 2].includes(manifest.version) ||
@@ -426,18 +435,106 @@ async function importSnapshot(blob: Blob): Promise<WorkspaceSnapshot> {
   ) {
     throw new Error("不支持的知页备份版本");
   }
-  const documents = await Promise.all(
-    manifest.workspace.documents.map(async (document) => {
-      const file = zip.file(`documents/${document.id}.bin`);
-      return {
-        ...document,
-        originalFile: file
-          ? new Blob([await file.async("arraybuffer")])
-          : undefined,
-      } as StudyDocument;
-    }),
-  );
+  const documents: StudyDocument[] = [];
+  for (const document of manifest.workspace.documents) {
+    const file = zip.file(`documents/${document.id}.bin`);
+    const chunks = file
+      ? await readArchiveEntry(
+          file as unknown as StreamableZipEntry,
+          extractionBudget,
+        )
+      : undefined;
+    documents.push({
+      ...document,
+      originalFile: chunks ? new Blob(chunks) : undefined,
+    } as StudyDocument);
+  }
   return createSnapshot({ ...manifest.workspace, documents });
+}
+
+interface SizedZipEntry {
+  dir: boolean;
+  _data?: { uncompressedSize?: number };
+}
+
+interface ZipEntryStream {
+  on(event: "data", callback: (chunk: Uint8Array) => void): ZipEntryStream;
+  on(event: "end", callback: () => void): ZipEntryStream;
+  on(event: "error", callback: (error: Error) => void): ZipEntryStream;
+  pause(): ZipEntryStream;
+  resume(): ZipEntryStream;
+}
+
+interface StreamableZipEntry extends SizedZipEntry {
+  internalStream(type: "uint8array"): ZipEntryStream;
+}
+
+async function readArchiveEntry(
+  entry: StreamableZipEntry,
+  budget: { bytes: number },
+): Promise<Uint8Array<ArrayBuffer>[]> {
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  const stream = entry.internalStream("uint8array");
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    stream
+      .on("data", (chunk) => {
+        if (settled) return;
+        budget.bytes += chunk.byteLength;
+        if (budget.bytes > MAX_BACKUP_PAYLOAD_BYTES) {
+          settled = true;
+          stream.pause();
+          reject(new Error("完整备份解压后超过 256 MB 上限"));
+          return;
+        }
+        chunks.push(chunk.slice());
+      })
+      .on("error", (error) => {
+        if (settled) return;
+        settled = true;
+        reject(error);
+      })
+      .on("end", () => {
+        if (settled) return;
+        settled = true;
+        resolve(chunks);
+      })
+      .resume();
+  });
+}
+
+function concatenateChunks(
+  chunks: Uint8Array<ArrayBuffer>[],
+): Uint8Array<ArrayBuffer> {
+  const totalBytes = chunks.reduce(
+    (total, chunk) => total + chunk.byteLength,
+    0,
+  );
+  const output = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output;
+}
+
+function assertArchiveSize(files: Record<string, SizedZipEntry>): void {
+  let totalBytes = 0;
+  for (const entry of Object.values(files) as SizedZipEntry[]) {
+    if (entry.dir) continue;
+    const size = entry._data?.uncompressedSize;
+    if (typeof size !== "number" || !Number.isSafeInteger(size) || size < 0) {
+      throw new Error("备份文件大小信息无效");
+    }
+    if (size > MAX_BACKUP_PAYLOAD_BYTES) {
+      throw new Error("备份中的单个文件超过 256 MB 上限");
+    }
+    totalBytes += size;
+    if (totalBytes > MAX_BACKUP_PAYLOAD_BYTES) {
+      throw new Error("完整备份解压后超过 256 MB 上限");
+    }
+  }
 }
 
 function newestById<T extends { id: string; updatedAt?: number }>(
@@ -461,11 +558,7 @@ function mergeSnapshots(
   const documents = [...current.documents];
   for (const document of incoming.documents) {
     const duplicateIndex = documents.findIndex(
-      (candidate) =>
-        candidate.id === document.id ||
-        (candidate.contentHash &&
-          document.contentHash &&
-          candidate.contentHash === document.contentHash),
+      (candidate) => candidate.id === document.id,
     );
     if (duplicateIndex < 0) {
       documents.push(document);
@@ -640,7 +733,6 @@ async function persistIncremental(
     // Determine which stores need writing.
     const storeWrites = new Map<StoreName, unknown[]>();
     const storeDeletes = new Map<StoreName, string[]>();
-    const storeClears = new Set<StoreName>();
 
     switch (command.type) {
       case "saveDocument":

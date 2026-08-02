@@ -1,0 +1,376 @@
+.modal {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  position: relative;
+  padding: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xl);
+  background: var(--paper);
+  box-shadow: var(--shadow-lg);
+  animation: modal-in 220ms var(--transition-spring);
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+}
+
+.modal-close {
+  width: 36px;
+  height: 36px;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
+  transition: all var(--transition-fast);
+}
+
+.modal-close:hover {
+  background: var(--surface-strong);
+  color: var(--ink);
+}
+
+.modal-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(27, 90, 65, 0.15);
+}
+
+.modal h2 {
+  margin: 20px 0 8px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.modal > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.native-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dropzone {
+  width: 100%;
+  min-height: 175px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--accent);
+  transition: all var(--transition-fast);
+}
+
+.dropzone:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-2px);
+}
+
+.dropzone strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.dropzone small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.file-picker-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  margin: 2px 0;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+.file-picker-button:hover {
+  background: var(--accent-hover);
+}
+
+.file-picker-button:active {
+  transform: translateY(1px);
+}
+
+.native-file-input:focus-visible + .dropzone .file-picker-button {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.dropzone.done {
+  border-style: solid;
+  background: var(--accent-soft);
+}
+
+.parse-lines {
+  width: 50px;
+  display: grid;
+  gap: 5px;
+}
+
+.parse-lines i {
+  height: 3px;
+  transform-origin: left;
+  border-radius: 3px;
+  background: var(--accent);
+  animation: parse 1.2s ease-in-out infinite;
+}
+
+.parse-lines i:nth-child(2) {
+  width: 80%;
+  animation-delay: 0.16s;
+}
+
+.parse-lines i:nth-child(3) {
+  width: 60%;
+  animation-delay: 0.32s;
+}
+
+@keyframes parse {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scaleX(0.65);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.import-error {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.form-error {
+  color: var(--danger);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.privacy-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  margin-top: 15px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settings-modal label {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-modal input,
+.settings-modal select {
+  width: 100%;
+  height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--input-bg);
+  font-size: 12px;
+}
+
+.model-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.settings-modal .fetch-models-button {
+  height: 40px;
+  padding: 0 11px;
+  white-space: nowrap;
+}
+
+.model-list-state {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settings-privacy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.agent-login-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent-soft));
+}
+
+.agent-login-actions span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.settings-privacy-note svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--accent);
+}
+
+.connection-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.connection-state.online {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.quiz-modal {
+  width: min(590px, 100%);
+}
+
+.quiz-header {
+  display: flex;
+  justify-content: space-between;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quiz-progress {
+  height: 3px;
+  margin: 10px 0 27px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--surface-strong);
+}
+
+.quiz-modal h2 {
+  margin-top: 0;
+  font-family: "Songti SC", SimSun, serif;
+  font-size: 21px;
+  line-height: 1.55;
+}
+
+.quiz-locator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.quiz-modal > textarea {
+  width: 100%;
+  margin-top: 17px;
+  padding: 13px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--input-bg);
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.quiz-feedback {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 9px;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.quiz-feedback.good {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.quiz-feedback strong {
+  font-size: 12px;
+}
+
+.quiz-feedback p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+}

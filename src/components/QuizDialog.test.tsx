@@ -20,9 +20,7 @@ afterEach(cleanup);
 
 async function openQuiz() {
   render(<App studyRepository={createMemoryStudyRepository()} />);
-  fireEvent.click(
-    screen.getAllByRole("button", { name: "开始章节练习" })[0],
-  );
+  fireEvent.click(screen.getAllByRole("button", { name: "开始章节练习" })[0]);
   return screen.findByPlaceholderText("用自己的话作答…");
 }
 
@@ -40,7 +38,9 @@ describe("章节练习流程", () => {
 
   it("评分后显示教材依据并允许记录需复习", async () => {
     const answer = await openQuiz();
-    fireEvent.change(answer, { target: { value: "命题是能够判断真假的陈述句" } });
+    fireEvent.change(answer, {
+      target: { value: "命题是能够判断真假的陈述句" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "提交答案" }));
 
     expect(await screen.findByText(/教材参考：/)).toBeVisible();

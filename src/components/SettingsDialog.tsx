@@ -177,7 +177,11 @@ export function SettingsDialog({
         <Dialog.Overlay className="overlay">
           <Dialog.Content className="modal settings-modal">
             <Dialog.Close asChild>
-              <button className="modal-close" aria-label="关闭设置窗口">
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="关闭设置窗口"
+              >
                 <X size={19} />
               </button>
             </Dialog.Close>
@@ -382,6 +386,7 @@ export function SettingsDialog({
               </label>
               <div className="backup-actions">
                 <button
+                  type="button"
                   className="secondary-button"
                   onClick={() => void exportEncryptedBackup()}
                   disabled={backupBusy}
@@ -401,6 +406,7 @@ export function SettingsDialog({
                     </div>
                     {autoBackup?.enabled ? (
                       <button
+                        type="button"
                         className="secondary-button"
                         onClick={async () =>
                           setAutoBackup(
@@ -412,6 +418,7 @@ export function SettingsDialog({
                       </button>
                     ) : (
                       <button
+                        type="button"
                         className="secondary-button"
                         disabled={backupPassword.length < 12}
                         onClick={async () => {
@@ -457,6 +464,7 @@ export function SettingsDialog({
                   </label>
                 )}
                 <button
+                  type="button"
                   className="secondary-button"
                   onClick={() => void restoreSelectedBackup()}
                   disabled={
@@ -494,6 +502,7 @@ export function SettingsDialog({
               <section
                 className="update-settings"
                 aria-labelledby="update-title"
+                aria-live="polite"
               >
                 <h3 id="update-title">应用更新</h3>
                 <p>
@@ -509,6 +518,7 @@ export function SettingsDialog({
                 )}
                 <div className="settings-actions">
                   <button
+                    type="button"
                     className="secondary-button"
                     disabled={
                       updateStatus.status === "checking" ||
@@ -525,6 +535,7 @@ export function SettingsDialog({
                   </button>
                   {updateStatus.status === "ready" && (
                     <button
+                      type="button"
                       className="primary-button"
                       onClick={() => void window.zhiyeDesktop!.installUpdate()}
                     >
@@ -596,6 +607,7 @@ export function SettingsDialog({
                       placeholder="填写或从上游获取模型 ID"
                     />
                     <button
+                      type="button"
                       className="secondary-button fetch-models-button"
                       onClick={onFetchModelOptions}
                     >
@@ -624,7 +636,9 @@ export function SettingsDialog({
               </label>
             )}
             {modelListState && (
-              <span className="model-list-state">{modelListState}</span>
+              <span className="model-list-state" role="status">
+                {modelListState}
+              </span>
             )}
             {(config.provider === "openai-compatible" ||
               config.provider === "claude") && (
@@ -669,6 +683,7 @@ export function SettingsDialog({
                       : selectedProviderStatus?.detail || "账号尚未连接"}
                   </span>
                   <button
+                    type="button"
                     className="secondary-button"
                     onClick={() =>
                       onChangeAgentLogin(
@@ -699,6 +714,7 @@ export function SettingsDialog({
               className={`connection-state ${
                 modelOnline === true ? "online" : ""
               }`}
+              role="status"
             >
               <i />
               {isTestingModel
@@ -715,10 +731,18 @@ export function SettingsDialog({
                     : "尚未测试连接"}
             </div>
             <div className="modal-actions">
-              <button className="secondary-button" onClick={onTestModel}>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={onTestModel}
+              >
                 测试连接
               </button>
-              <button className="primary-button" onClick={onSaveSettings}>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={onSaveSettings}
+              >
                 保存设置
               </button>
             </div>

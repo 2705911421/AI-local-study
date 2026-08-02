@@ -219,7 +219,7 @@ function parseJsonObject(content: string): Record<string, unknown> {
   return JSON.parse(fenced.slice(start, end + 1)) as Record<string, unknown>;
 }
 
-function isQuizItem(item: unknown): item is Record<string, unknown> {
+function isQuizItem(item: unknown): item is QuizItemOutput {
   if (!isRecord(item)) return false;
   return (
     typeof item.id === "string" &&
@@ -232,7 +232,9 @@ function isQuizItem(item: unknown): item is Record<string, unknown> {
     typeof item.locator === "string" &&
     typeof item.evidenceBlockId === "string" &&
     Array.isArray(item.keyPoints) &&
-    Array.isArray(item.options)
+    item.keyPoints.every((point) => typeof point === "string") &&
+    Array.isArray(item.options) &&
+    item.options.every((option) => typeof option === "string")
   );
 }
 
@@ -253,4 +255,5 @@ import type {
   IntelligenceRequest,
   IntelligenceResult,
   JsonSchema,
+  QuizItemOutput,
 } from "./types.js";

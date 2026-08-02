@@ -25,7 +25,11 @@ export function QuizDialog({
         <Dialog.Overlay className="overlay quiz-overlay">
           <Dialog.Content className="modal quiz-modal">
             <Dialog.Close asChild>
-              <button className="modal-close" aria-label="关闭章节练习">
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="关闭章节练习"
+              >
                 <X size={19} />
               </button>
             </Dialog.Close>
@@ -35,7 +39,14 @@ export function QuizDialog({
                 {quizIndex + 1} / {quiz.length}
               </strong>
             </div>
-            <div className="quiz-progress">
+            <div
+              className="quiz-progress"
+              role="progressbar"
+              aria-label="章节练习进度"
+              aria-valuemin={1}
+              aria-valuemax={quiz.length}
+              aria-valuenow={quizIndex + 1}
+            >
               <span
                 style={{
                   width: `${((quizIndex + 1) / quiz.length) * 100}%`,
@@ -53,13 +64,16 @@ export function QuizDialog({
             <textarea
               rows={6}
               value={quizAnswer}
-              onChange={(event) => learning.changeQuizAnswer(event.target.value)}
+              onChange={(event) =>
+                learning.changeQuizAnswer(event.target.value)
+              }
               placeholder="用自己的话作答…"
               disabled={quizScore !== null}
             />
             {quizScore !== null && (
               <div
                 className={`quiz-feedback ${quizScore >= 0.35 ? "good" : ""}`}
+                role="status"
               >
                 <strong>
                   {quizScore >= 0.65
@@ -72,6 +86,7 @@ export function QuizDialog({
                 <div className="mastery-actions">
                   <span>你对这题的判断</span>
                   <button
+                    type="button"
                     className={
                       quizMastery[quizIndex] === "mastered" ? "is-selected" : ""
                     }
@@ -80,6 +95,7 @@ export function QuizDialog({
                     已掌握
                   </button>
                   <button
+                    type="button"
                     className={
                       quizMastery[quizIndex] === "review" ? "is-selected" : ""
                     }
@@ -92,6 +108,7 @@ export function QuizDialog({
             )}
             <div className="modal-actions">
               <button
+                type="button"
                 className="secondary-button"
                 onClick={shell.closeOverlay}
               >
@@ -99,6 +116,7 @@ export function QuizDialog({
               </button>
               {quizScore === null ? (
                 <button
+                  type="button"
                   className="primary-button"
                   onClick={onGrade}
                   disabled={!quizAnswer.trim()}
@@ -106,7 +124,11 @@ export function QuizDialog({
                   提交答案
                 </button>
               ) : (
-                <button className="primary-button" onClick={onNext}>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={onNext}
+                >
                   {quizIndex < quiz.length - 1 ? "下一题" : "完成练习"}
                 </button>
               )}

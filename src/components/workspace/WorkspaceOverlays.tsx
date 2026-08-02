@@ -27,10 +27,7 @@ interface WorkspaceOverlaysProps {
   onNextQuiz: () => void;
   onSetMastery: (value: "mastered" | "review") => void;
   reviewItems: ReviewQueueItem[];
-  onRateReview: (
-    item: ReviewQueueItem,
-    rating: ReviewRating,
-  ) => Promise<void>;
+  onRateReview: (item: ReviewQueueItem, rating: ReviewRating) => Promise<void>;
   onOpenReviewEvidence: (item: ReviewQueueItem) => void;
   onDeleteNote: (id: string) => void;
   onDeleteDocument: (id: string) => void;

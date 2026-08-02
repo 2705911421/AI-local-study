@@ -14,11 +14,12 @@ import {
   gradeAnswerWithModel as gradeBrowserAnswer,
   generateQuizWithModel as generateBrowserQuiz,
   listModels as listBrowserModels,
-} from "../ollama";
+} from "../browserIntelligenceAdapter";
 import type {
   DesktopSavedSettings,
   IntelligenceConfig,
   IntelligencePayloadMap,
+  IntelligenceRequest,
   IntelligenceResult,
   IntelligenceTask,
   ModelGrade,
@@ -51,7 +52,7 @@ async function invokeDesktop<T extends IntelligenceTask>(
   }
   signal?.addEventListener("abort", cancel, { once: true });
   try {
-    return await bridge.invoke({
+    const request = {
       id,
       provider: config.provider,
       task,
@@ -61,7 +62,8 @@ async function invokeDesktop<T extends IntelligenceTask>(
         endpoint: config.endpoint,
         model: config.model,
       },
-    });
+    } as IntelligenceRequest<T>;
+    return await bridge.invoke(request);
   } finally {
     signal?.removeEventListener("abort", cancel);
   }

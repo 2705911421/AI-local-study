@@ -25,7 +25,11 @@ export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
         <Dialog.Overlay className="overlay">
           <Dialog.Content className="modal upload-modal">
             <Dialog.Close asChild>
-              <button className="modal-close" aria-label="关闭导入教材窗口">
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="关闭导入教材窗口"
+              >
                 <X size={19} />
               </button>
             </Dialog.Close>
@@ -54,6 +58,7 @@ export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
             />
             <div
               className={`dropzone ${importState}`}
+              aria-live="polite"
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => {
                 event.preventDefault();
@@ -77,6 +82,7 @@ export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
                       : "大文件可能需要一些时间"}
                   </small>
                   <button
+                    type="button"
                     className="cancel-import"
                     onClick={library.cancelImport}
                   >
@@ -99,7 +105,11 @@ export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
                 </>
               )}
             </div>
-            {importError && <div className="import-error">{importError}</div>}
+            {importError && (
+              <div className="import-error" role="alert">
+                {importError}
+              </div>
+            )}
             <label className="ocr-option">
               <input
                 type="checkbox"
@@ -121,7 +131,9 @@ export function ImportDialog({ onFile }: { onFile: (file?: File) => void }) {
                   value={library.importOcrLanguages.join("+")}
                   disabled={importState === "parsing"}
                   onChange={(event) =>
-                    library.configureImportLanguages(event.target.value.split("+"))
+                    library.configureImportLanguages(
+                      event.target.value.split("+"),
+                    )
                   }
                 >
                   <option value="chi_sim+eng">简体中文 + 英文</option>

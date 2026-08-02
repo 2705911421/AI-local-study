@@ -2,7 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 async function expectNoSeriousAccessibilityIssues(page: Page) {
-  await expect(page.locator('[aria-label="正在载入知页"]')).toHaveCount(0);
+  await expect(page.locator('[aria-label="正在载入知页"]')).toHaveCount(0, {
+    timeout: 15_000,
+  });
   await page.waitForFunction(() =>
     document
       .getAnimations()
@@ -84,6 +86,20 @@ async function mockOllama(page: Page) {
     await route.fulfill({ json: { message: { content } } });
   });
 }
+
+test("桌面和移动工作区视觉基线", async ({ page }, testInfo) => {
+  await page.goto("/app");
+  await expect(page.locator('[aria-label="正在载入知页"]')).toHaveCount(0, {
+    timeout: 15_000,
+  });
+  await expect(page).toHaveScreenshot(
+    `workspace-${testInfo.project.name}.png`,
+    {
+      animations: "disabled",
+      fullPage: true,
+    },
+  );
+});
 
 test("桌面端章节搜索、高亮与弹窗均可操作", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");

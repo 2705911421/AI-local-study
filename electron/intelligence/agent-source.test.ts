@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import JSZip from "jszip";
@@ -9,6 +16,7 @@ import {
   codexThreadOptions,
   extractProviderRuntime,
   getClaudeCredential,
+  createAgentSource,
 } from "./agent-source.js";
 
 describe("agent isolation policy", () => {
@@ -83,4 +91,41 @@ describe("agent isolation policy", () => {
       await rm(root, { recursive: true, force: true });
     }
   }, 15_000);
+
+  it("does not delete images when initialization is requested again", async () => {
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), "zhiye-agent-init-test-"),
+    );
+    const source = createAgentSource({
+      userData: root,
+      runtimeAssets: null,
+      openExternal: () => undefined,
+      settingsStore: {
+        getRuntimeConfig: async () => ({
+          provider: "claude",
+          endpoint: "",
+          model: "",
+          apiKey: "",
+          claudeToken: "",
+        }),
+        hasProviderCredential: async () => false,
+        setClaudeToken: async () => undefined,
+        clearClaudeCredentials: async () => undefined,
+      },
+    });
+    const imageDirectory = path.join(root, "agent-runtime", "images");
+    const imagePath = path.join(imageDirectory, "active-request.png");
+    try {
+      await source.initialize();
+      await mkdir(imageDirectory, { recursive: true });
+      await writeFile(imagePath, "active");
+
+      await Promise.all([source.initialize(), source.initialize()]);
+
+      await expect(access(imagePath)).resolves.toBeUndefined();
+    } finally {
+      await source.cleanup();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

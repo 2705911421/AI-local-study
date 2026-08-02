@@ -1,4 +1,4 @@
-import { memo, type RefObject } from "react";
+import { memo, useMemo, useState, type RefObject } from "react";
 import {
   ArrowDown,
   ArrowRight,
@@ -14,6 +14,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import type { Highlight, TextBlock } from "../../types";
+import { CURRENT_PDF_PARSER_VERSION } from "../../lib/document";
 import { PdfReader } from "../PdfReader";
 import {
   useIntelligence,
@@ -28,7 +29,6 @@ interface ReaderPaneProps {
   containerRef: RefObject<HTMLElement | null>;
   visiblePdfPage: number;
   visiblePdfBlocks: TextBlock[];
-  searchResults: TextBlock[];
   chapterHighlights: Highlight[];
   onScroll: () => void;
   onRebuildSegments: () => void;
@@ -36,7 +36,7 @@ interface ReaderPaneProps {
   onShowTextForPage: (page: number, blockId?: string) => void;
   onEnhanceChapter: () => void;
   onCancelEnhancement: () => void;
-  onGoToSearchResult: (index: number) => void;
+  onGoToSearchResult: (index: number, results: TextBlock[]) => number;
   onMergeSegments: () => void;
   onSplitSegment: () => void;
   onToggleTable: () => void;
@@ -53,7 +53,6 @@ export const ReaderPane = memo(function ReaderPane({
   containerRef,
   visiblePdfPage,
   visiblePdfBlocks,
-  searchResults,
   chapterHighlights,
   onScroll,
   onRebuildSegments,
@@ -80,6 +79,21 @@ export const ReaderPane = memo(function ReaderPane({
   const notes = useNotes();
   const intelligence = useIntelligence();
   const { activeDocument, activeChapter } = library;
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [chapterSearch, setChapterSearch] = useState("");
+  const [searchIndex, setSearchIndex] = useState(0);
+  const searchResults = useMemo(() => {
+    const normalized = chapterSearch.trim().toLocaleLowerCase("zh-CN");
+    if (!normalized) return [];
+    return activeChapter.blocks.filter((block) =>
+      (block.smartText || block.text)
+        .toLocaleLowerCase("zh-CN")
+        .includes(normalized),
+    );
+  }, [activeChapter.blocks, chapterSearch]);
+  const goToSearchResult = (index: number) => {
+    setSearchIndex(onGoToSearchResult(index, searchResults));
+  };
 
   return (
     <main
@@ -99,7 +113,7 @@ export const ReaderPane = memo(function ReaderPane({
         <div className="reader-tools">
           {activeDocument.kind === "pdf" &&
             activeDocument.originalFile &&
-            activeDocument.parserVersion !== 3 && (
+            activeDocument.parserVersion !== CURRENT_PDF_PARSER_VERSION && (
               <button
                 type="button"
                 className="segment-upgrade-button"
@@ -149,10 +163,10 @@ export const ReaderPane = memo(function ReaderPane({
               <button
                 type="button"
                 data-testid="chapter-search-toggle"
-                className={reader.searchOpen ? "active" : ""}
+                className={searchOpen ? "active" : ""}
                 title="在当前章节中查找"
                 onClick={() => {
-                  reader.openSearch(!reader.searchOpen);
+                  setSearchOpen((open) => !open);
                   window.setTimeout(
                     () => document.getElementById("chapter-search")?.focus(),
                     0,
@@ -195,40 +209,38 @@ export const ReaderPane = memo(function ReaderPane({
           )}
         </div>
       </div>
-      {reader.searchOpen && reader.readerMode === "text" && (
+      {searchOpen && reader.readerMode === "text" && (
         <div className="chapter-search-bar" role="search">
           <MagnifyingGlass size={16} />
           <input
             id="chapter-search"
-            value={reader.chapterSearch}
+            value={chapterSearch}
             onChange={(event) => {
-              reader.changeSearch(event.target.value);
-              reader.changeSearchIndex(0);
+              setChapterSearch(event.target.value);
+              setSearchIndex(0);
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                onGoToSearchResult(
-                  reader.searchIndex + (event.shiftKey ? -1 : 1),
-                );
+                goToSearchResult(searchIndex + (event.shiftKey ? -1 : 1));
               }
               if (event.key === "Escape") {
-                reader.openSearch(false);
-                reader.changeSearch("");
+                setSearchOpen(false);
+                setChapterSearch("");
               }
             }}
             placeholder="查找当前章节"
           />
           <span>
             {searchResults.length
-              ? `${reader.searchIndex + 1} / ${searchResults.length}`
-              : reader.chapterSearch
+              ? `${searchIndex + 1} / ${searchResults.length}`
+              : chapterSearch
                 ? "无结果"
                 : "输入关键词"}
           </span>
           <button
             type="button"
-            onClick={() => onGoToSearchResult(reader.searchIndex - 1)}
+            onClick={() => goToSearchResult(searchIndex - 1)}
             disabled={!searchResults.length}
             aria-label="上一个搜索结果"
           >
@@ -236,7 +248,7 @@ export const ReaderPane = memo(function ReaderPane({
           </button>
           <button
             type="button"
-            onClick={() => onGoToSearchResult(reader.searchIndex + 1)}
+            onClick={() => goToSearchResult(searchIndex + 1)}
             disabled={!searchResults.length}
             aria-label="下一个搜索结果"
           >
@@ -245,8 +257,8 @@ export const ReaderPane = memo(function ReaderPane({
           <button
             type="button"
             onClick={() => {
-              reader.openSearch(false);
-              reader.changeSearch("");
+              setSearchOpen(false);
+              setChapterSearch("");
             }}
             aria-label="关闭章节搜索"
           >
@@ -257,10 +269,18 @@ export const ReaderPane = memo(function ReaderPane({
       {reader.selectionMode && reader.readerMode === "text" && (
         <div className="segment-editor" role="toolbar" aria-label="分段编辑">
           <span>已选 {reader.selectedBlockIds.length} 段</span>
-          <button type="button" onClick={onMergeSegments}>合并</button>
-          <button type="button" onClick={onSplitSegment}>拆分</button>
-          <button type="button" onClick={onToggleTable}>标记表格</button>
-          <button type="button" onClick={onRestoreSegments}>恢复初始分段</button>
+          <button type="button" onClick={onMergeSegments}>
+            合并
+          </button>
+          <button type="button" onClick={onSplitSegment}>
+            拆分
+          </button>
+          <button type="button" onClick={onToggleTable}>
+            标记表格
+          </button>
+          <button type="button" onClick={onRestoreSegments}>
+            恢复初始分段
+          </button>
         </div>
       )}
 
@@ -309,7 +329,8 @@ export const ReaderPane = memo(function ReaderPane({
             </div>
           )}
           {activeChapter.blocks.map((block, index) =>
-            block.smartTextOwnerId && block.smartTextOwnerId !== block.id ? null : (
+            block.smartTextOwnerId &&
+            block.smartTextOwnerId !== block.id ? null : (
               <section
                 className={`text-block ${
                   reader.highlightedBlockId === block.id
@@ -324,7 +345,7 @@ export const ReaderPane = memo(function ReaderPane({
                     ? "search-match"
                     : ""
                 } ${
-                  searchResults[reader.searchIndex]?.id === block.id
+                  searchResults[searchIndex]?.id === block.id
                     ? "search-current"
                     : ""
                 } ${reader.highlighterMode ? "is-highlight-selectable" : ""} ${
@@ -387,7 +408,9 @@ export const ReaderPane = memo(function ReaderPane({
                       }}
                     >
                       <HighlighterCircle size={13} />
-                      {chapterHighlights.some((item) => item.blockId === block.id)
+                      {chapterHighlights.some(
+                        (item) => item.blockId === block.id,
+                      )
                         ? "取消高亮"
                         : "高亮"}
                     </button>
@@ -397,8 +420,10 @@ export const ReaderPane = memo(function ReaderPane({
                       onClick={(event) => {
                         event.stopPropagation();
                         reader.selectBlock(block.id);
-                        reader.changeTextPage(block.page || reader.currentTextPage);
-                        notes.startNote(
+                        reader.changeTextPage(
+                          block.page || reader.currentTextPage,
+                        );
+                        notes.startNewNote(
                           (block.smartText || block.text).slice(0, 180),
                         );
                         shell.selectRightTab("notes");
@@ -433,7 +458,11 @@ export const ReaderPane = memo(function ReaderPane({
               <strong>读到这里，检验一下是否真正理解</strong>
               <span>练习答案只按照本章教材内容进行评分</span>
             </div>
-            <button type="button" onClick={onOpenQuiz} aria-label="开始章节练习">
+            <button
+              type="button"
+              onClick={onOpenQuiz}
+              aria-label="开始章节练习"
+            >
               开始章节练习
               <ArrowRight size={15} />
             </button>

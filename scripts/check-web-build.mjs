@@ -62,4 +62,4 @@ for (const asset of [...appDependencies, ...landingDependencies]) {
   assert(emittedAssets.has(relativeAsset), `构建资源不存在：${asset}`);
 }
 
-console.log("网站工作台与发布页的动态样式依赖正确");
+process.stdout.write("网站工作台与发布页的动态样式依赖正确\n");

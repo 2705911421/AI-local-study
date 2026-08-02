@@ -14,7 +14,6 @@ import type { Chapter, Section, StudyDocument } from "../../types";
 import {
   useLearning,
   useLibrary,
-  useReader,
   useShell,
 } from "../../workspace/WorkspaceDomains";
 import { markWorkspaceRender } from "../../workspace/renderDiagnostics";
@@ -45,7 +44,6 @@ export const LibrarySidebar = memo(function LibrarySidebar({
   markWorkspaceRender("library");
   const shell = useShell();
   const library = useLibrary();
-  const reader = useReader();
   const learning = useLearning();
   const [bookSearch, setBookSearch] = useState("");
   const [bookSort, setBookSort] = useState<"recent" | "name" | "created">(
@@ -120,7 +118,8 @@ export const LibrarySidebar = memo(function LibrarySidebar({
         </span>
         <span className="book-meta">
           <strong>
-            {library.activeDocument.displayTitle || library.activeDocument.title}
+            {library.activeDocument.displayTitle ||
+              library.activeDocument.title}
           </strong>
           <small>{library.activeDocument.filename}</small>
         </span>
@@ -283,10 +282,10 @@ export const LibrarySidebar = memo(function LibrarySidebar({
         </div>
         <div className="plan-row">
           <span>阅读进度</span>
-          <strong>{reader.furthestPercent}%</strong>
+          <strong>{library.furthestPercent}%</strong>
         </div>
         <div className="progress-track">
-          <span style={{ width: `${reader.furthestPercent}%` }} />
+          <span style={{ width: `${library.furthestPercent}%` }} />
         </div>
         <div className="study-history">
           <span>练习记录 {documentQuizHistory.length}</span>
@@ -308,7 +307,11 @@ export const LibrarySidebar = memo(function LibrarySidebar({
             薄弱题目
           </span>
         </div>
-        <button type="button" onClick={onOpenQuiz} aria-label="开始章节练习（底部）">
+        <button
+          type="button"
+          onClick={onOpenQuiz}
+          aria-label="开始章节练习（底部）"
+        >
           开始章节练习
           <ArrowRight size={15} />
         </button>

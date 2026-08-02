@@ -39,9 +39,12 @@ export function ConfirmDialog({
             </AlertDialog.Description>
             <div className="modal-actions">
               <AlertDialog.Cancel asChild>
-                <button className="secondary-button">取消</button>
+                <button type="button" className="secondary-button">
+                  取消
+                </button>
               </AlertDialog.Cancel>
               <button
+                type="button"
                 className="danger-button"
                 onClick={() => pendingId && onConfirm(pendingId)}
               >

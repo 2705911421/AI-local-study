@@ -57,7 +57,11 @@ export function ReviewDialog({
         <Dialog.Overlay className="overlay review-overlay">
           <Dialog.Content className="modal review-modal">
             <Dialog.Close asChild>
-              <button className="modal-close" aria-label="关闭今日复习">
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="关闭今日复习"
+              >
                 <X size={19} />
               </button>
             </Dialog.Close>
@@ -82,6 +86,7 @@ export function ReviewDialog({
                   {item.block.smartText || item.block.text}
                 </blockquote>
                 <button
+                  type="button"
                   className="review-evidence"
                   onClick={() => onOpenEvidence(item)}
                 >
@@ -91,6 +96,7 @@ export function ReviewDialog({
                 <div className="review-ratings" aria-label="复习掌握程度">
                   {RATINGS.map((rating) => (
                     <button
+                      type="button"
                       key={rating.value}
                       onClick={() => void onRate(item, rating.value)}
                     >
@@ -102,6 +108,7 @@ export function ReviewDialog({
                 <div className="review-footer">
                   <span>剩余 {items.length - skipped.length} 项</span>
                   <button
+                    type="button"
                     onClick={() =>
                       setSkipped((current) => [...current, item.schedule.id])
                     }
@@ -115,7 +122,9 @@ export function ReviewDialog({
                 <strong>今天的复习已完成</strong>
                 <span>新的到期内容会继续出现在这里。</span>
                 <Dialog.Close asChild>
-                  <button className="primary-button">完成</button>
+                  <button type="button" className="primary-button">
+                    完成
+                  </button>
                 </Dialog.Close>
               </div>
             )}

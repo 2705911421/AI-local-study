@@ -144,9 +144,7 @@ describe("EPUB paragraph locators", () => {
     const document = await parseDocument(new File([bytes], "locator.epub"));
     const blocks = document.chapters.flatMap((chapter) => chapter.blocks);
     expect(blocks[0].virtualPage).toBe(1);
-    expect(blocks.at(-1)?.progressPercent).toBeGreaterThan(
-      blocks[0].progressPercent || 0,
-    );
+    expect(blocks.at(-1)?.progressPercent).toBe(100);
     expect(blocks.at(-1)?.locator).toContain("进度");
   });
 });
@@ -181,9 +179,31 @@ describe("complex PDF segmentation", () => {
     expect(blocks[0].text).toContain("左栏第一行");
     expect(blocks[0].text).toContain("左栏第二行");
     expect(blocks[0].text).not.toContain("右栏第一行");
+    expect(blocks[0].sourceItemIndexes).toEqual([0, 2]);
     expect(blocks.some((block) => block.text.includes("右栏第一行"))).toBe(
       true,
     );
+  });
+
+  it("keeps three-column prose in column reading order", () => {
+    const blocks = semanticPdfBlocks(
+      [
+        item("第一栏第一行正文内容", 50, 650, 0),
+        item("第二栏第一行正文内容", 260, 650, 1),
+        item("第三栏第一行正文内容", 470, 650, 2),
+        item("第一栏第二行继续说明", 50, 630, 3),
+        item("第二栏第二行继续说明", 260, 630, 4),
+        item("第三栏第二行继续说明", 470, 630, 5),
+      ],
+      "chapter",
+      2,
+    );
+
+    expect(blocks).toHaveLength(3);
+    expect(blocks.every((block) => block.blockKind !== "table")).toBe(true);
+    expect(blocks[0].text).toContain("第一栏第一行");
+    expect(blocks[0].text).toContain("第一栏第二行");
+    expect(blocks[0].text).not.toContain("第二栏第一行");
   });
 
   it("preserves spaced table cells as a table block", () => {

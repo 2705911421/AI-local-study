@@ -11,13 +11,22 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { PdfReader } from "./PdfReader";
 
 const renderTask = { promise: Promise.resolve(), cancel: vi.fn() };
+interface PdfTextItemMock {
+  str: string;
+  transform: number[];
+  width: number;
+  height: number;
+}
+
 const pdfPage = {
   getViewport: ({ scale }: { scale: number }) => ({
     width: 600 * scale,
     height: 800 * scale,
     convertToViewportRectangle: (value: number[]) => value,
   }),
-  getTextContent: vi.fn(async () => ({ items: [] })),
+  getTextContent: vi.fn(async (): Promise<{ items: PdfTextItemMock[] }> => ({
+    items: [],
+  })),
   render: vi.fn(() => renderTask),
 };
 const pdfDocument = {
@@ -49,7 +58,10 @@ beforeAll(() => {
   ) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  pdfPage.getTextContent.mockResolvedValue({ items: [] });
+});
 
 const file = {
   arrayBuffer: vi.fn(async () => new ArrayBuffer(8)),
@@ -97,5 +109,49 @@ describe("PdfReader", () => {
     fireEvent.click(screen.getByRole("button", { name: "取消内容选择" }));
     expect(props.onGenerateSelected).toHaveBeenCalledOnce();
     expect(props.onSelectionModeChange).toHaveBeenCalledWith(false);
+  });
+
+  it("多栏块只高亮明确关联的 PDF 文本项", async () => {
+    pdfPage.getTextContent.mockResolvedValueOnce({
+      items: [
+        {
+          str: "左栏第一行内容足够长",
+          transform: [1, 0, 0, 1, 50, 650],
+          width: 90,
+          height: 12,
+        },
+        {
+          str: "右栏第一行内容足够长",
+          transform: [1, 0, 0, 1, 330, 650],
+          width: 90,
+          height: 12,
+        },
+        {
+          str: "左栏第二行继续说明",
+          transform: [1, 0, 0, 1, 50, 630],
+          width: 90,
+          height: 12,
+        },
+      ],
+    });
+    renderReader({
+      blocks: [
+        {
+          id: "left-column",
+          chapterId: "chapter",
+          text: "左栏第一行内容足够长左栏第二行继续说明",
+          page: 1,
+          sourceItemIndexes: [0, 2],
+          sourceItemStart: 0,
+          sourceItemEnd: 3,
+          locator: "PDF 第 1 页",
+        },
+      ],
+    });
+
+    const region = await screen.findByRole("button", {
+      name: /定位智能文本：左栏第一行/,
+    });
+    expect(region).toHaveStyle({ left: "47px", width: "96px" });
   });
 });
