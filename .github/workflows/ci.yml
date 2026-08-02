@@ -91,4 +91,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run audit:runtime
+      - run: npm audit
+
+  container-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v3
+      - name: Validate production container
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

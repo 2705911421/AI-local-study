@@ -2,6 +2,11 @@
 
 ![知页 Logo](brand/logo-mark.svg)
 
+[![CI](https://github.com/2705911421/AI-local-study/actions/workflows/ci.yml/badge.svg)](https://github.com/2705911421/AI-local-study/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/2705911421/AI-local-study/actions/workflows/codeql.yml/badge.svg)](https://github.com/2705911421/AI-local-study/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/2705911421/AI-local-study?display_name=tag&sort=semver)](https://github.com/2705911421/AI-local-study/releases/latest)
+[![License](https://img.shields.io/github/license/2705911421/AI-local-study)](LICENSE)
+
 知页是一款面向 Windows 的本地教材伴学工具。用户导入 PDF 或 EPUB 后，可以在教材范围内阅读、检索、提问、练习和记录笔记；回答与智能文本都保留原文引用，便于随时回到教材核对。
 
 项目同时提供 Web 版和 Electron 桌面版。Web 版支持本机 Ollama 与 OpenAI Chat Completions 兼容服务；桌面版在此基础上增加 Codex、Claude 智能来源及 Windows 本地凭据保护。
@@ -34,7 +39,7 @@
 
 ### 环境要求
 
-- Node.js 20 或更高版本
+- Node.js 22 或更高版本
 - npm
 - Windows x64（桌面端开发和打包）
 
@@ -55,6 +60,17 @@ npm run dev
 ```powershell
 npm run desktop:dev
 ```
+
+## 获取发布版本
+
+- 源码与版本说明：[GitHub Releases](https://github.com/2705911421/AI-local-study/releases)
+- Web 容器：`ghcr.io/2705911421/ai-local-study:<version>`
+
+```bash
+docker run --rm -p 8080:8080 ghcr.io/2705911421/ai-local-study:latest
+```
+
+访问 `http://127.0.0.1:8080/`。正式 Windows 安装包只会在通过 Authenticode 签名验证后附加到 Release；未签名构建仅供本地验收。
 
 ## 构建与预览
 
@@ -212,4 +228,4 @@ Content-Security-Policy: frame-ancestors 'none'
 
 ## 许可证
 
-当前仓库未声明开源许可证，默认保留全部权利。
+本项目采用 [Apache License 2.0](LICENSE) 开源。第三方组件与随附资源仍受各自许可证约束，归属信息见 [NOTICE](NOTICE)。贡献方式、安全报告和支持渠道分别见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md) 与 [SUPPORT.md](SUPPORT.md)。

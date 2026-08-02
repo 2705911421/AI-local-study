@@ -3,6 +3,26 @@
   "private": true,
   "version": "0.1.0",
   "description": "面向 Windows 的本地教材伴学工具，只依据用户导入的教材回答。",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/2705911421/AI-local-study.git"
+  },
+  "bugs": {
+    "url": "https://github.com/2705911421/AI-local-study/issues"
+  },
+  "homepage": "https://github.com/2705911421/AI-local-study#readme",
+  "keywords": [
+    "local-first",
+    "learning",
+    "pdf",
+    "epub",
+    "electron",
+    "react"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "author": {
     "name": "知页团队"
   },
@@ -94,7 +114,7 @@
     "vitest": "^3.2.7",
     "vitest-axe": "^0.1.0",
     "wait-on": "9.0.1",
-    "wrangler": "^4.92.0"
+    "wrangler": "^4.118.0"
   },
   "build": {
     "appId": "cn.zhiye.study",
