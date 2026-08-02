@@ -1,7 +1,7 @@
 .git
 .github
 .husky
-.openai
+.openai/*.tar.gz
 .playwright-cli
 .playwright-mcp
 .reasonix
