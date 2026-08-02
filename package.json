@@ -74,7 +74,7 @@
     "extract-zip": "^2.0.1",
     "jszip": "^3.10.1",
     "motion": "^12.42.2",
-    "pdfjs-dist": "^5.4.149",
+    "pdfjs-dist": "^6.2.108",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "tesseract.js": "^7.0.0"
