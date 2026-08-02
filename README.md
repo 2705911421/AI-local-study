@@ -183,12 +183,14 @@ npm run audit:runtime
 │  ├─ workspace/          工作区领域接口、运行时与业务操作
 │  └─ lib/                文档解析、检索、学习引擎、存储和备份
 ├─ electron/              TypeScript 主进程、预加载脚本和智能来源运行时
-├─ tests/                 Web 与桌面端 Playwright 测试
+├─ tests/                 Web/桌面测试及集中式测试配置
 ├─ scripts/               Web/桌面构建、品牌资源和运行时准备脚本
-├─ sites/                 Cloudflare Worker 入口
+├─ sites/                 Cloudflare Worker 入口与部署配置
+├─ docker/                容器构建入口与 Nginx 配置
 ├─ public/                字体、PDF CMap 与公开静态资源
 ├─ brand/                 品牌源文件
-└─ docs/                  补充技术文档
+├─ docs/                  变更记录与补充技术文档
+└─ .github/               社区规范、协作模板与自动化工作流
 ```
 
 ## 常用命令
@@ -228,4 +230,4 @@ Content-Security-Policy: frame-ancestors 'none'
 
 ## 许可证
 
-本项目采用 [Apache License 2.0](LICENSE) 开源。第三方组件与随附资源仍受各自许可证约束，归属信息见 [NOTICE](NOTICE)。贡献方式、安全报告和支持渠道分别见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md) 与 [SUPPORT.md](SUPPORT.md)。
+本项目采用 [Apache License 2.0](LICENSE) 开源。第三方组件与随附资源仍受各自许可证约束，归属信息见 [NOTICE](NOTICE)。贡献方式、安全报告和支持渠道分别见 [贡献指南](.github/CONTRIBUTING.md)、[安全策略](.github/SECURITY.md) 与 [支持说明](.github/SUPPORT.md)，版本变化见 [Changelog](docs/CHANGELOG.md)。

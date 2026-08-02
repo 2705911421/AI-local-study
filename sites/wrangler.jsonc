@@ -1,10 +1,10 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
+  "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "zhiye-local-study-preview",
-  "main": "dist/server/index.js",
+  "main": "../dist/server/index.js",
   "compatibility_date": "2026-05-22",
   "assets": {
-    "directory": "dist/client",
+    "directory": "../dist/client",
     "binding": "ASSETS",
     "run_worker_first": true,
   },

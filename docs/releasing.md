@@ -2,11 +2,11 @@
 
 ## 版本规则
 
-项目遵循语义化版本。`package.json`、`package-lock.json`、`CHANGELOG.md` 和 Git 标签必须使用同一版本；标签格式为 `vMAJOR.MINOR.PATCH`。
+项目遵循语义化版本。`package.json`、`package-lock.json`、`docs/CHANGELOG.md` 和 Git 标签必须使用同一版本；标签格式为 `vMAJOR.MINOR.PATCH`。
 
 ## 发布前检查
 
-1. 将 `CHANGELOG.md` 的 Unreleased 内容归档到新版本标题。
+1. 将 `docs/CHANGELOG.md` 的 Unreleased 内容归档到新版本标题。
 2. 使用 `npm version <major|minor|patch> --no-git-tag-version` 同步包元数据。
 3. 在 `main` 上通过全部 CI，并确认工作区干净。
 4. 创建并推送带注释标签：
