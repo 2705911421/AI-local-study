@@ -1,0 +1,548 @@
+{
+  "version": "1.0",
+  "materials": [
+    {
+      "id": "gutenberg-physiology-epub",
+      "category": "epub",
+      "profile": "smoke",
+      "filename": "physiology-gutenberg.epub",
+      "url": "https://www.gutenberg.org/ebooks/53347.epub3.images",
+      "sha256": "9845afd2826cfb6198597259534cec50a64813f9266fe3ed12d7c85b9148342f",
+      "sourcePage": "https://www.gutenberg.org/ebooks/53347",
+      "license": "Public domain in the USA; Project Gutenberg terms apply to the compilation",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "epub",
+        "minChapters": 3,
+        "minBlocks": 20,
+        "keywords": ["physiology", "heart"]
+      }
+    },
+    {
+      "id": "tablex-two-column",
+      "category": "complex-layout",
+      "profile": "smoke",
+      "filename": "tablex-2105.06400.pdf",
+      "url": "https://export.arxiv.org/pdf/2105.06400",
+      "sha256": "11e9ae59f39bcaf4ad1ba0e92243fd628f67f583ce35b7c2c1540684ebec15f8",
+      "sourcePage": "https://arxiv.org/abs/2105.06400",
+      "license": "arXiv non-exclusive distribution license; use as a local test input",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["TabLeX", "table"]
+      }
+    },
+    {
+      "id": "pubtabnet-tables",
+      "category": "tables",
+      "profile": "smoke",
+      "filename": "pubtabnet-1911.10683.pdf",
+      "url": "https://export.arxiv.org/pdf/1911.10683",
+      "sha256": "19dc16b0d5e7ea356953c7338529440ca064663ae5d0b6f90b68c8c23ce33115",
+      "sourcePage": "https://arxiv.org/abs/1911.10683",
+      "license": "arXiv non-exclusive distribution license; use as a local test input",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["PubTabNet", "table"]
+      }
+    },
+    {
+      "id": "pdfjs-rotated-page",
+      "category": "rotation",
+      "profile": "smoke",
+      "filename": "pdfjs-hello-world-rotated.pdf",
+      "url": "https://raw.githubusercontent.com/mozilla/pdf.js/7fc7072f9c8e499b068dfc0d860f90ebe6eda36d/test/pdfs/hello_world_rotated.pdf",
+      "sha256": "ab0cb700cd5e5338fd676dfca25becae800acd2be03a4e57856485b8cfd2d28b",
+      "sourcePage": "https://github.com/mozilla/pdf.js/tree/master/test/pdfs",
+      "license": "Apache-2.0 (PDF.js repository)",
+      "expected": {
+        "outcome": "requires_text_or_rejects",
+        "kind": "pdf"
+      }
+    },
+    {
+      "id": "pdfjs-missing-cmap",
+      "category": "font-encoding",
+      "profile": "smoke",
+      "filename": "pdfjs-truetype-without-cmap.pdf",
+      "url": "https://raw.githubusercontent.com/mozilla/pdf.js/7fc7072f9c8e499b068dfc0d860f90ebe6eda36d/test/pdfs/TrueType_without_cmap.pdf",
+      "sha256": "3e111eef52ce9c0d0b1da043290df4b49a5670c89891fcb3db6962edb12e35aa",
+      "sourcePage": "https://github.com/mozilla/pdf.js/tree/master/test/pdfs",
+      "license": "Apache-2.0 (PDF.js repository)",
+      "expected": {
+        "outcome": "requires_text_or_rejects",
+        "kind": "pdf"
+      }
+    },
+    {
+      "id": "pdfjs-real-two-column",
+      "category": "complex-layout",
+      "profile": "smoke",
+      "filename": "pdfjs-issue9552-two-column.pdf",
+      "url": "https://github.com/mozilla/pdf.js/files/3721640/issue9552.pdf",
+      "sha256": "aef48deaf7c647c6eaf54d919ff1c881dad721cbe2ed30a0a04974dd4935ea38",
+      "sourcePage": "https://github.com/mozilla/pdf.js/issues/9552",
+      "license": "Upstream issue attachment; local compatibility testing only",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["planning"]
+      }
+    },
+    {
+      "id": "public-domain-scanned-medical-textbook",
+      "category": "ocr",
+      "profile": "smoke",
+      "filename": "human-body-1907-scan.pdf",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/a/a7/The_human_body%3B_a_text-book_of_anatomy%2C_physiology%2C_and_hygiene%3B_with_practical_exercises_%28IA_cu31924003689886%29.pdf",
+      "sha256": "989bc0dc02d6b31365a245223817247a441c402c645a50022002c34bcf90cc18",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:The_human_body;_a_text-book_of_anatomy,_physiology,_and_hygiene;_with_practical_exercises_(IA_cu31924003689886).pdf",
+      "license": "Public domain in the United States",
+      "expected": {
+        "outcome": "requires_text_or_rejects",
+        "kind": "pdf"
+      }
+    },
+    {
+      "id": "libretexts-anatomy-physiology",
+      "category": "standard-textbook",
+      "profile": "smoke",
+      "filename": "libretexts-anatomy-physiology.pdf",
+      "url": "https://med.libretexts.org/@api/deki/pages/9522/pdf/Anatomy%2band%2bPhysiology.pdf",
+      "sourcePage": "https://med.libretexts.org/Bookshelves/Anatomy_and_Physiology",
+      "license": "CC BY-NC-SA 4.0 (LibreTexts)",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 5,
+        "keywords": ["anatomy", "physiology"]
+      }
+    },
+    {
+      "id": "fda-orange-book",
+      "category": "tables",
+      "profile": "smoke",
+      "filename": "fda-orange-book-2025.pdf",
+      "url": "https://www.fda.gov/media/186374/download",
+      "sourcePage": "https://www.fda.gov/drugs/drug-approvals-and-databases/approved-drug-products-therapeutic-equivalence-evaluations-orange-book",
+      "license": "Public domain (U.S. government)",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 10,
+        "keywords": ["drug", "product"]
+      }
+    },
+    {
+      "id": "chinese-medicine-textbook",
+      "category": "chinese-ocr",
+      "profile": "smoke",
+      "filename": "chinese-medicine-textbook.pdf",
+      "url": "https://archive.org/download/traditional-chinese-medicine/%E6%95%91%E4%B8%96%E7%99%BE%E7%97%85%E7%A7%98%E6%96%B9%20Traditional%20Chinese%20Medicine.pdf",
+      "sourcePage": "https://archive.org/details/traditional-chinese-medicine",
+      "license": "Public domain (Internet Archive)",
+      "expected": {
+        "outcome": "requires_text_or_rejects",
+        "kind": "pdf"
+      }
+    },
+    {
+      "id": "wellcome-chinese-collection",
+      "category": "chinese-manuscript",
+      "profile": "reference",
+      "filename": "wellcome-chinese-collection-103.pdf",
+      "url": "https://iiif.wellcomecollection.org/pdf/b14870472",
+      "sourcePage": "https://wellcomecollection.org/works/w35t4dxr",
+      "license": "Public Domain Mark",
+      "remoteBytes": 204699599,
+      "expected": {
+        "outcome": "requires_text_or_rejects",
+        "kind": "pdf"
+      }
+    },
+    {
+      "id": "unisq-anatomy-oversize-epub",
+      "category": "limit-reference",
+      "profile": "reference",
+      "filename": "unisq-anatomy-oversize.epub",
+      "url": "https://usq.pressbooks.pub/anatomy/open/download?type=epub",
+      "sourcePage": "https://usq.pressbooks.pub/anatomy/",
+      "license": "CC BY-SA 4.0",
+      "remoteBytes": 198472553,
+      "expected": {
+        "outcome": "rejected_by_size",
+        "kind": "epub"
+      }
+    },
+    {
+      "id": "unisq-anatomy-oversize-pdf",
+      "category": "limit-reference",
+      "profile": "reference",
+      "filename": "unisq-anatomy-oversize.pdf",
+      "url": "https://usq.pressbooks.pub/anatomy/open/download?type=pdf",
+      "sourcePage": "https://usq.pressbooks.pub/anatomy/",
+      "license": "CC BY-SA 4.0",
+      "remoteBytes": 188977195,
+      "expected": {
+        "outcome": "rejected_by_size",
+        "kind": "pdf"
+      }
+    },
+    {
+      "id": "synthetic-chinese-textbook",
+      "category": "chinese-textbook",
+      "profile": "smoke",
+      "filename": "synthetic-chinese-textbook.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["线粒体", "叶绿体", "ATP"]
+      }
+    },
+    {
+      "id": "synthetic-medical-pharmacology",
+      "category": "medical",
+      "profile": "smoke",
+      "filename": "synthetic-medical-pharmacology.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 10,
+        "keywords": ["普萘洛尔", "β受体", "ACEI"]
+      }
+    },
+    {
+      "id": "synthetic-medical-pathophysiology",
+      "category": "medical",
+      "profile": "smoke",
+      "filename": "synthetic-medical-pathophysiology.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 10,
+        "keywords": ["代谢性酸中毒", "SB", "BE", "HCO3-"]
+      }
+    },
+    {
+      "id": "synthetic-two-column-academic",
+      "category": "complex-layout",
+      "profile": "smoke",
+      "filename": "synthetic-two-column-academic.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 10,
+        "keywords": ["layout", "document", "table"]
+      }
+    },
+    {
+      "id": "synthetic-complex-tables",
+      "category": "tables",
+      "profile": "smoke",
+      "filename": "synthetic-complex-tables.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 5,
+        "keywords": ["青霉素", "万古霉素", "电解质"]
+      }
+    },
+    {
+      "id": "synthetic-cross-page-table",
+      "category": "tables",
+      "profile": "smoke",
+      "filename": "synthetic-cross-page-table.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["华法林", "药物相互作用"]
+      }
+    },
+    {
+      "id": "synthetic-rotated-pages",
+      "category": "rotation",
+      "profile": "smoke",
+      "filename": "synthetic-rotated-pages.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 5,
+        "keywords": ["Page", "ROTATED"]
+      }
+    },
+    {
+      "id": "synthetic-mixed-image-text",
+      "category": "edge-case",
+      "profile": "smoke",
+      "filename": "synthetic-mixed-image-text.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 3,
+        "keywords": ["Text Page", "Na+"]
+      }
+    },
+    {
+      "id": "synthetic-chinese-scanned-like",
+      "category": "ocr",
+      "profile": "smoke",
+      "filename": "synthetic-chinese-scanned-like.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 5,
+        "keywords": ["代谢性酸中毒", "SB", "Na+"]
+      }
+    },
+    {
+      "id": "synthetic-overlapping-text",
+      "category": "edge-case",
+      "profile": "smoke",
+      "filename": "synthetic-overlapping-text.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 3,
+        "keywords": ["primary", "text", "overlap"]
+      }
+    },
+    {
+      "id": "synthetic-large-1500pages",
+      "category": "stress",
+      "profile": "smoke",
+      "filename": "synthetic-large-1500pages.pdf",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 100,
+        "keywords": ["physiology", "Na+"]
+      }
+    },
+    {
+      "id": "synthetic-chinese-medical-epub",
+      "category": "epub",
+      "profile": "smoke",
+      "filename": "synthetic-chinese-medical.epub",
+      "generatedBy": "scripts/generate-synthetic-materials.py",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "epub",
+        "minChapters": 5,
+        "minBlocks": 10,
+        "keywords": ["病理生理学", "酸碱平衡"]
+      }
+    },
+    {
+      "id": "arxiv-formula-heavy",
+      "category": "complex-layout",
+      "profile": "smoke",
+      "filename": "arxiv-1707.06749.pdf",
+      "url": "https://export.arxiv.org/pdf/1707.06749",
+      "sourcePage": "https://arxiv.org/abs/1707.06749",
+      "license": "arXiv non-exclusive distribution license",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["manuscript", "model", "analysis"]
+      }
+    },
+    {
+      "id": "arxiv-docbank",
+      "category": "complex-layout",
+      "profile": "smoke",
+      "filename": "arxiv-1908-04135.pdf",
+      "url": "https://export.arxiv.org/pdf/1908.04135",
+      "sourcePage": "https://arxiv.org/abs/1908.04135",
+      "license": "arXiv non-exclusive distribution license",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["preprint", "analysis", "method"]
+      }
+    },
+    {
+      "id": "arxiv-table-parsing",
+      "category": "tables",
+      "profile": "smoke",
+      "filename": "arxiv-2005.00928.pdf",
+      "url": "https://export.arxiv.org/pdf/2005.00928",
+      "sourcePage": "https://arxiv.org/abs/2005.00928",
+      "license": "arXiv non-exclusive distribution license",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["attention", "transformer", "flow"]
+      }
+    },
+    {
+      "id": "arxiv-bert-layout",
+      "category": "complex-layout",
+      "profile": "smoke",
+      "filename": "arxiv-2104.13449.pdf",
+      "url": "https://export.arxiv.org/pdf/2104.13449",
+      "sourcePage": "https://arxiv.org/abs/2104.13449",
+      "license": "arXiv non-exclusive distribution license",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["network", "generative", "model"]
+      }
+    },
+    {
+      "id": "arxiv-multimodal-doc",
+      "category": "complex-layout",
+      "profile": "smoke",
+      "filename": "arxiv-2212.05903.pdf",
+      "url": "https://export.arxiv.org/pdf/2212.05903",
+      "sourcePage": "https://arxiv.org/abs/2212.05903",
+      "license": "arXiv non-exclusive distribution license",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 10,
+        "keywords": ["software", "syrec", "title"]
+      }
+    },
+    {
+      "id": "arxiv-chinese-doc",
+      "category": "chinese-textbook",
+      "profile": "smoke",
+      "filename": "arxiv-2305.06519-chinese.pdf",
+      "url": "https://export.arxiv.org/pdf/2305.06519",
+      "sourcePage": "https://arxiv.org/abs/2305.06519",
+      "license": "arXiv non-exclusive distribution license",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["elastic", "properties", "model"]
+      }
+    },
+    {
+      "id": "arxiv-llm-survey",
+      "category": "standard-textbook",
+      "profile": "smoke",
+      "filename": "arxiv-2305.14688-llm-survey.pdf",
+      "url": "https://export.arxiv.org/pdf/2305.14688",
+      "sourcePage": "https://arxiv.org/abs/2305.14688",
+      "license": "arXiv non-exclusive distribution license",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 20,
+        "keywords": ["language", "model"]
+      }
+    },
+    {
+      "id": "gutenberg-anatomy-epub",
+      "category": "epub",
+      "profile": "smoke",
+      "filename": "gutenberg-anatomy-63376.epub",
+      "url": "https://www.gutenberg.org/ebooks/63376.epub3.images",
+      "sourcePage": "https://www.gutenberg.org/ebooks/63376",
+      "license": "Public domain in the USA",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "epub",
+        "minChapters": 2,
+        "minBlocks": 10,
+        "keywords": ["sweating", "sickness", "england"]
+      }
+    },
+    {
+      "id": "gutenberg-physiology-epub-2",
+      "category": "epub",
+      "profile": "smoke",
+      "filename": "gutenberg-physiology-63593.epub",
+      "url": "https://www.gutenberg.org/ebooks/63593.epub3.images",
+      "sourcePage": "https://www.gutenberg.org/ebooks/63593",
+      "license": "Public domain in the USA",
+      "expected": {
+        "outcome": "rejected_by_size",
+        "kind": "epub"
+      },
+      "remoteBytes": 59822863
+    },
+    {
+      "id": "synthetic-medical-adversarial",
+      "category": "medical",
+      "profile": "smoke",
+      "filename": "synthetic-medical-adversarial.pdf",
+      "sha256": "75afa886ac271d27907ec1cf298511a6d9ef9ceddc1fd80b1885f8063f284e60",
+      "expected": {
+        "outcome": "parsed",
+        "kind": "pdf",
+        "minChapters": 1,
+        "minBlocks": 10,
+        "keywords": ["酸中毒", "受体", "碳酸氢盐"]
+      }
+    },
+    {
+      "id": "synthetic-medical-scan",
+      "category": "ocr",
+      "profile": "smoke",
+      "filename": "synthetic-medical-scan.pdf",
+      "sha256": "2be8e1cc25966132223a6426372a4f390b3264f9736277730bce779a22f3be8e",
+      "expected": {
+        "outcome": "requires_text_or_rejects",
+        "kind": "pdf"
+      }
+    },
+    {
+      "id": "synthetic-2001-pages",
+      "category": "stress",
+      "profile": "smoke",
+      "filename": "synthetic-2001-pages.pdf",
+      "sha256": "31bac26ea918bb728b4384638d3e14722691a0278d2489c531a142b232654dae",
+      "expected": {
+        "outcome": "requires_text_or_rejects",
+        "kind": "pdf"
+      }
+    }
+  ]
+}

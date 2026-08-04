@@ -4,4 +4,6 @@
 @import "./styles/reader.css";
 @import "./styles/assistant.css";
 @import "./styles/dialogs.css";
+@import "./styles/mindmap.css";
+@import "./styles/sticky-note.css";
 @import "./styles/responsive.css";

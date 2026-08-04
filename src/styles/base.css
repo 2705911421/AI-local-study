@@ -157,6 +157,117 @@
   --shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.6);
 }
 
+/* --- Hand-drawn Style Utilities --- */
+:root {
+  /* Sketchy border radius variations */
+  --sketch-radius-sm: 4px 8px 6px 10px;
+  --sketch-radius-md: 8px 12px 10px 14px;
+  --sketch-radius-lg: 12px 18px 14px 20px;
+  --sketch-radius-xl: 16px 24px 18px 28px;
+
+  /* Paper texture overlay */
+  --paper-texture: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+
+  /* Hand-drawn shadow variations */
+  --sketch-shadow-xs: 2px 3px 0 rgba(28, 41, 32, 0.15);
+  --sketch-shadow-sm: 3px 4px 0 rgba(28, 41, 32, 0.18);
+  --sketch-shadow-md: 5px 7px 0 rgba(28, 41, 32, 0.2);
+  --sketch-shadow-lg: 8px 11px 0 rgba(28, 41, 32, 0.22);
+
+  /* Animation curves */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-elastic: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+}
+
+/* Sketchy border utility */
+.sketch-border {
+  border: 2px solid var(--line-strong);
+  border-radius: var(--sketch-radius-md);
+  box-shadow: var(--sketch-shadow-sm);
+}
+
+/* Paper texture overlay utility */
+.paper-texture::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--paper-texture);
+  opacity: 0.03;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Hand-drawn underline effect */
+.hand-underline {
+  position: relative;
+  display: inline-block;
+}
+
+.hand-underline::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 8px;
+  background: var(--accent-faded);
+  border-radius: 40% 60% 50% 50%;
+  transform: rotate(-1deg);
+  opacity: 0.6;
+}
+
+/* Sketchy button style */
+.sketch-button {
+  position: relative;
+  border: 2px solid var(--accent);
+  border-radius: var(--sketch-radius-sm);
+  background: var(--paper-raised);
+  box-shadow: var(--sketch-shadow-sm);
+  transition: all 200ms var(--ease-spring);
+}
+
+.sketch-button:hover {
+  transform: translate(-2px, -2px) rotate(-1deg);
+  box-shadow: var(--sketch-shadow-md);
+}
+
+.sketch-button:active {
+  transform: translate(1px, 1px) rotate(0.5deg);
+  box-shadow: var(--sketch-shadow-xs);
+}
+
+/* Wavy divider */
+.wavy-divider {
+  width: 100%;
+  height: 12px;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 1200 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6 Q30 0 60 6 T120 6 T180 6 T240 6 T300 6 T360 6 T420 6 T480 6 T540 6 T600 6 T660 6 T720 6 T780 6 T840 6 T900 6 T960 6 T1020 6 T1080 6 T1140 6 T1200 6' fill='none' stroke='var(--line-strong)' stroke-width='2'/%3E%3C/svg%3E")
+    repeat-x center;
+  opacity: 0.6;
+}
+
+/* Doodle circle */
+.doodle-circle {
+  border: 2px solid var(--accent);
+  border-radius: 47% 53% 45% 55%;
+  transform: rotate(-3deg);
+}
+
+/* Paper card with sketch effect */
+.paper-card {
+  position: relative;
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--sketch-radius-lg);
+  box-shadow: var(--sketch-shadow-md);
+  transition: all 300ms var(--ease-spring);
+}
+
+.paper-card:hover {
+  transform: translateY(-4px) rotate(-0.5deg);
+  box-shadow: var(--sketch-shadow-lg);
+}
+
 * {
   box-sizing: border-box;
 }

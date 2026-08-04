@@ -143,6 +143,9 @@ function retrieveCandidates(
   activeChapterId?: string,
   semanticSearch = true,
 ): Citation[] {
+  // P0-2: 大文档动态增加 limit，确保分散的内容也能被检索到
+  const effectiveLimit =
+    rawCandidates.length > 500 ? Math.max(limit, 12) : limit;
   const rawScores = bm25Scores(query, rawCandidates);
   const maxScore = Math.max(...rawScores, 0);
   const queryVector = semanticSearch
@@ -163,7 +166,9 @@ function retrieveCandidates(
         ((maxScore ? rawScores[index] / maxScore : 0) *
           (semanticSearch ? 0.7 : 1) +
           vectorScores[index] * (semanticSearch ? 0.9 : 0)) *
-        (candidate.chapter.id === activeChapterId ? 1.08 : 1),
+        (candidate.chapter.id === activeChapterId ? 1.08 : 1) *
+        // P2: 表格 block 检索权重提升 — 表格包含结构化数据，匹配更精确
+        (candidate.block.blockKind === "table" ? 1.2 : 1),
     }))
     .filter((candidate) => candidate.score >= 0.08)
     .sort((a, b) => b.score - a.score);
@@ -171,7 +176,7 @@ function retrieveCandidates(
   const strongest = candidates[0]?.score || 0;
   const selected: typeof candidates = [];
   for (const candidate of candidates) {
-    if (candidate.score < Math.max(0.24, strongest * 0.68)) continue;
+    if (candidate.score < Math.max(0.12, strongest * 0.5)) continue;
     const previous = selected[selected.length - 1];
     if (
       previous &&
@@ -179,12 +184,12 @@ function retrieveCandidates(
       Math.abs(
         previous.chapter.blocks.indexOf(previous.block) -
           candidate.chapter.blocks.indexOf(candidate.block),
-      ) <= 1
+      ) <= 3
     ) {
       continue;
     }
     selected.push(candidate);
-    if (selected.length >= limit) break;
+    if (selected.length >= effectiveLimit) break;
   }
 
   return selected.map(({ block, score }) => ({

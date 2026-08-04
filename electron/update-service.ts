@@ -29,6 +29,7 @@ interface UpdateServiceOptions {
   >;
   feedUrl?: string;
   packaged: boolean;
+  version?: string;
 }
 
 export class UpdateService {
@@ -37,18 +38,27 @@ export class UpdateService {
   readonly enabled: boolean;
   private state: UpdateState;
 
-  constructor({ updater, feedUrl, packaged }: UpdateServiceOptions) {
+  constructor({
+    updater,
+    feedUrl,
+    packaged,
+    version = "",
+  }: UpdateServiceOptions) {
     this.updater = updater;
     this.feedUrl = normalizeUpdateUrl(feedUrl);
     // Packaged builds can use electron-builder's embedded app-update.yml.
     // An explicit URL remains useful for QA and private release channels.
-    this.enabled = packaged;
+    this.enabled = packaged && !isBetaVersion(version);
     this.state = {
       status: this.enabled ? "idle" : "disabled",
       currentVersion: "",
       availableVersion: "",
       progress: 0,
-      message: this.enabled ? "" : "开发模式不检查应用更新",
+      message: this.enabled
+        ? ""
+        : isBetaVersion(version)
+          ? "Beta 内测请从私有 Release 手动更新"
+          : "开发模式不检查应用更新",
     };
     if (!this.enabled) return;
     updater.autoDownload = true;
@@ -131,4 +141,8 @@ export function normalizeUpdateUrl(value?: string): string {
   } catch {
     return "";
   }
+}
+
+export function isBetaVersion(value: string): boolean {
+  return /-beta(?:\.|$)/i.test(value);
 }

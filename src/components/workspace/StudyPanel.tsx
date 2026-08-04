@@ -12,6 +12,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   Trash,
+  TreeStructure,
   X,
 } from "@phosphor-icons/react";
 import type { ChatMessage, Citation, Highlight } from "../../types";
@@ -20,9 +21,13 @@ import {
   useAssistant,
   useLibrary,
   useNotes,
+  useMindMapDomain,
+  useStickyNotes,
   useShell,
 } from "../../workspace/WorkspaceDomains";
 import { markWorkspaceRender } from "../../workspace/renderDiagnostics";
+import { MindMapPane } from "./MindMapPane";
+import { StickyNote } from "./StickyNote";
 
 type FeedbackReason = NonNullable<ChatMessage["feedbackReason"]>;
 
@@ -54,11 +59,22 @@ export const StudyPanel = memo(function StudyPanel({
   const library = useLibrary();
   const assistant = useAssistant();
   const notes = useNotes();
+  const mindMap = useMindMapDomain();
+  const sticky = useStickyNotes();
   const [query, setQuery] = useState("");
   const [searchScope, setSearchScope] = useState<SearchScope>("document");
   const [noteDraft, setNoteDraft] = useState("");
   const [noteError, setNoteError] = useState("");
   const [noteSearch, setNoteSearch] = useState("");
+  const currentStickyNotes = useMemo(
+    () =>
+      sticky.stickyNotes.filter(
+        (note) =>
+          note.documentId === library.activeDocument.id &&
+          note.chapterId === library.activeChapter.id,
+      ),
+    [library.activeChapter.id, library.activeDocument.id, sticky.stickyNotes],
+  );
   useEffect(() => {
     setNoteDraft(notes.editor.initialDraft);
     setNoteError("");
@@ -106,9 +122,24 @@ export const StudyPanel = memo(function StudyPanel({
           笔记
           {chapterNotes.length > 0 && <span>{chapterNotes.length}</span>}
         </button>
+        <button
+          type="button"
+          className={shell.rightTab === "mindmap" ? "active" : ""}
+          onClick={() => shell.selectRightTab("mindmap")}
+        >
+          <TreeStructure size={16} />
+          导图
+        </button>
       </div>
 
-      {shell.rightTab === "mentor" ? (
+      {shell.rightTab === "mindmap" ? (
+        <MindMapPane
+          mindMap={mindMap.activeMindMap}
+          onGenerate={() => void mindMap.generateMindMap()}
+          onDelete={() => void mindMap.deleteMindMap()}
+          isGenerating={mindMap.isGenerating}
+        />
+      ) : shell.rightTab === "mentor" ? (
         <div className="chat-panel">
           <div className="chat-messages">
             {assistant.messages.map((message) => (
@@ -389,6 +420,31 @@ export const StudyPanel = memo(function StudyPanel({
               </div>
             )}
           </div>
+          <section className="sticky-notes-section" aria-label="章节便签">
+            <div className="sticky-notes-heading">
+              <strong>章节便签</strong>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void sticky.addStickyNote("新便签", 24, 24)}
+              >
+                <NotePencil size={13} />
+                添加
+              </button>
+            </div>
+            <div className="sticky-notes-container">
+              {currentStickyNotes.map((note) => (
+                <StickyNote
+                  key={note.id}
+                  note={note}
+                  onUpdate={(id, updates) =>
+                    void sticky.updateStickyNote(id, updates)
+                  }
+                  onDelete={(id) => void sticky.deleteStickyNote(id)}
+                />
+              ))}
+            </div>
+          </section>
           {chapterHighlights.length > 0 && (
             <div className="highlight-summary">
               <strong>高亮批注 · {chapterHighlights.length}</strong>

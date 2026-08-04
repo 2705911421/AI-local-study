@@ -264,6 +264,23 @@ export function SettingsDialog({
                   <option value="wide">宽</option>
                 </select>
               </label>
+              <label>
+                教材留白
+                <select
+                  value={preferences.readerMargin || "medium"}
+                  onChange={(event) =>
+                    onSavePreferences({
+                      ...preferences,
+                      readerMargin: event.target
+                        .value as UserPreferences["readerMargin"],
+                    })
+                  }
+                >
+                  <option value="narrow">窄</option>
+                  <option value="medium">标准</option>
+                  <option value="wide">宽</option>
+                </select>
+              </label>
             </fieldset>
             <fieldset className="reading-preferences">
               <legend>智能检索与批量生成</legend>

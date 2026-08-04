@@ -1,5 +1,8 @@
 node_modules/
 .tmp-preview/
+.tmp-pptx*/
+scripts/__pycache__/
+build/runtimes/
 dist/
 dist-electron/
 coverage/
@@ -8,6 +11,8 @@ release/
 !public/release/**
 artifacts/
 output/
+benchmarks/corpus/
+benchmarks/results/
 test-results/
 playwright-report/
 .playwright-cli/
@@ -16,6 +21,7 @@ playwright-report/
 .reasonix/
 reasonix.toml
 .openai/*.tar.gz
+.design-tools/
 *.log
 *.tsbuildinfo
 vite.config.js

@@ -27,6 +27,8 @@ type DocumentManagerRuntime = Pick<
   | "setMessages"
   | "setMobileView"
   | "setNotes"
+  | "setMindMaps"
+  | "setStickyNotes"
   | "setNotice"
   | "setPdfFocusPage"
   | "setPendingDeleteDocumentId"
@@ -75,6 +77,8 @@ export function useDocumentManager(ctx: DocumentManagerRuntime) {
     setChatHydratingDocumentId,
     setHighlights,
     setNotes,
+    setMindMaps,
+    setStickyNotes,
     setReadingStates,
     setQuizAttempts,
     setReviewSchedules,
@@ -115,6 +119,8 @@ export function useDocumentManager(ctx: DocumentManagerRuntime) {
         workspace.documents.filter((d) => d.deletedAt !== undefined),
       );
       setNotes(workspace.notes);
+      setMindMaps(workspace.mindMaps);
+      setStickyNotes(workspace.stickyNotes);
       setHighlights(workspace.highlights);
       setReadingStates(workspace.readingStates);
       setQuizAttempts(workspace.quizAttempts);
@@ -126,6 +132,8 @@ export function useDocumentManager(ctx: DocumentManagerRuntime) {
       setDocuments,
       setTrashedDocuments,
       setNotes,
+      setMindMaps,
+      setStickyNotes,
       setHighlights,
       setReadingStates,
       setQuizAttempts,

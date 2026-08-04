@@ -11,7 +11,7 @@
   height: 48px;
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   border-bottom: 1px solid var(--line);
   background: var(--paper);
 }
@@ -27,11 +27,12 @@
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
-  transition: all var(--transition-fast);
+  transition: all 200ms var(--ease-spring);
 }
 
 .panel-tabs button:hover {
   color: var(--ink);
+  transform: translateY(-1px);
 }
 
 .panel-tabs button.active {
@@ -48,6 +49,16 @@
   height: 2px;
   background: var(--accent-gradient);
   border-radius: 99px;
+  animation: tab-indicator 0.3s var(--ease-spring);
+}
+
+@keyframes tab-indicator {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
 }
 
 .panel-tabs button > span {
@@ -60,6 +71,33 @@
   font-weight: 700;
   line-height: 1.4;
   text-align: center;
+}
+
+.sticky-notes-section {
+  border-top: 1px solid var(--line);
+  padding: 12px;
+}
+
+.sticky-notes-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.sticky-notes-heading .secondary-button {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.sticky-notes-container {
+  min-height: 150px;
+  max-height: 280px;
+  margin-top: 8px;
+  overflow: auto;
+  background: var(--surface);
 }
 
 .chat-panel {
@@ -82,10 +120,37 @@
   flex-direction: column;
   align-items: flex-start;
   margin-bottom: 20px;
+  animation: bubble-in 0.4s var(--ease-spring);
+}
+
+@keyframes bubble-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) rotate(-1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
 }
 
 .chat-bubble.student {
   align-items: flex-end;
+}
+
+.chat-bubble.student .bubble-content {
+  animation: bubble-student-in 0.4s var(--ease-spring);
+}
+
+@keyframes bubble-student-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) rotate(1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
 }
 
 .bubble-content {

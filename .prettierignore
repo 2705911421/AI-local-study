@@ -11,5 +11,8 @@ test-results/
 .wrangler/
 .reasonix/
 .tmp-preview/
+sites/.tmp-preview/
+.tmp-pptx*/
+scripts/__pycache__/
 package-lock.json
 public/release/

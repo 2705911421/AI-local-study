@@ -4,9 +4,11 @@ import type {
   EnhancementJob,
   Highlight,
   ImportCheckpoint,
+  MindMap,
   QuizAttempt,
   ReadingState,
   ReviewSchedule,
+  StickyNote,
   StudyDocument,
   StudyNote,
   UserPreferences,
@@ -33,6 +35,8 @@ const STORES = [
   "dailyMetrics",
   "enhancementJobs",
   "preferences",
+  "mindMaps",
+  "stickyNotes",
 ] as const;
 
 type StoreName = (typeof STORES)[number];
@@ -49,6 +53,8 @@ export interface WorkspaceSnapshot {
   dailyMetrics: DailyStudyMetric[];
   enhancementJobs: EnhancementJob[];
   preferences: UserPreferences;
+  mindMaps: MindMap[];
+  stickyNotes: StickyNote[];
 }
 
 export type StudyCommand =
@@ -76,7 +82,11 @@ export type StudyCommand =
   | { type: "saveDailyMetric"; metric: DailyStudyMetric }
   | { type: "saveEnhancementJob"; job: EnhancementJob }
   | { type: "deleteEnhancementJob"; jobId: string }
-  | { type: "savePreferences"; preferences: UserPreferences };
+  | { type: "savePreferences"; preferences: UserPreferences }
+  | { type: "saveMindMap"; mindMap: MindMap }
+  | { type: "deleteMindMap"; mindMapId: string }
+  | { type: "saveStickyNote"; stickyNote: StickyNote }
+  | { type: "deleteStickyNote"; stickyNoteId: string };
 
 export interface StudyRepository {
   loadWorkspace(): Promise<WorkspaceSnapshot>;
@@ -120,6 +130,8 @@ interface Seed {
   dailyMetrics?: DailyStudyMetric[];
   enhancementJobs?: EnhancementJob[];
   preferences?: UserPreferences;
+  mindMaps?: MindMap[];
+  stickyNotes?: StickyNote[];
   legacyNotes?: LegacyNote[];
 }
 
@@ -182,6 +194,8 @@ function createSnapshot(seed: Seed = {}): WorkspaceSnapshot {
     dailyMetrics: seed.dailyMetrics || [],
     enhancementJobs: seed.enhancementJobs || [],
     preferences: { ...DEFAULT_PREFERENCES, ...(seed.preferences || {}) },
+    mindMaps: seed.mindMaps || [],
+    stickyNotes: seed.stickyNotes || [],
   };
 }
 
@@ -208,6 +222,12 @@ function recordsForDocument(snapshot: WorkspaceSnapshot, documentId: string) {
     (item) => item.documentId !== documentId,
   );
   snapshot.enhancementJobs = snapshot.enhancementJobs.filter(
+    (item) => item.documentId !== documentId,
+  );
+  snapshot.mindMaps = snapshot.mindMaps.filter(
+    (item) => item.documentId !== documentId,
+  );
+  snapshot.stickyNotes = snapshot.stickyNotes.filter(
     (item) => item.documentId !== documentId,
   );
 }
@@ -362,6 +382,30 @@ function applyToSnapshot(
       break;
     case "savePreferences":
       snapshot.preferences = command.preferences;
+      break;
+    case "saveMindMap":
+      snapshot.mindMaps = upsert(
+        snapshot.mindMaps,
+        command.mindMap,
+        (item) => item.id,
+      );
+      break;
+    case "deleteMindMap":
+      snapshot.mindMaps = snapshot.mindMaps.filter(
+        (item) => item.id !== command.mindMapId,
+      );
+      break;
+    case "saveStickyNote":
+      snapshot.stickyNotes = upsert(
+        snapshot.stickyNotes,
+        command.stickyNote,
+        (item) => item.id,
+      );
+      break;
+    case "deleteStickyNote":
+      snapshot.stickyNotes = snapshot.stickyNotes.filter(
+        (item) => item.id !== command.stickyNoteId,
+      );
       break;
   }
   return snapshot;
@@ -595,6 +639,11 @@ function mergeSnapshots(
     ),
     preferences:
       incoming.preferences || current.preferences || DEFAULT_PREFERENCES,
+    mindMaps: newestById(current.mindMaps || [], incoming.mindMaps || []),
+    stickyNotes: newestById(
+      current.stickyNotes || [],
+      incoming.stickyNotes || [],
+    ),
   });
 }
 
@@ -686,6 +735,8 @@ async function loadBrowserSnapshot(
     dailyMetrics,
     enhancementJobs,
     preferencesRecords,
+    mindMaps,
+    stickyNotes,
   ] = await Promise.all([
     readAll<StudyDocument>(db, "documents"),
     readAll<StudyNote>(db, "notes"),
@@ -698,6 +749,8 @@ async function loadBrowserSnapshot(
     readAll<DailyStudyMetric>(db, "dailyMetrics"),
     readAll<EnhancementJob>(db, "enhancementJobs"),
     readAll<UserPreferences & { id: string }>(db, "preferences"),
+    readAll<MindMap>(db, "mindMaps"),
+    readAll<StickyNote>(db, "stickyNotes"),
   ]);
   return createSnapshot({
     documents,
@@ -711,6 +764,8 @@ async function loadBrowserSnapshot(
     dailyMetrics,
     enhancementJobs,
     preferences: preferencesRecords[0] || DEFAULT_PREFERENCES,
+    mindMaps,
+    stickyNotes,
   });
 }
 
@@ -789,6 +844,18 @@ async function persistIncremental(
           { id: "user", ...command.preferences },
         ]);
         break;
+      case "saveMindMap":
+        storeWrites.set("mindMaps", [command.mindMap]);
+        break;
+      case "deleteMindMap":
+        storeDeletes.set("mindMaps", [command.mindMapId]);
+        break;
+      case "saveStickyNote":
+        storeWrites.set("stickyNotes", [command.stickyNote]);
+        break;
+      case "deleteStickyNote":
+        storeDeletes.set("stickyNotes", [command.stickyNoteId]);
+        break;
     }
 
     const involvedStores = [
@@ -830,6 +897,8 @@ async function persistSnapshot(db: IDBDatabase, snapshot: WorkspaceSnapshot) {
       dailyMetrics: snapshot.dailyMetrics,
       enhancementJobs: snapshot.enhancementJobs,
       preferences: [{ id: "user", ...snapshot.preferences }],
+      mindMaps: snapshot.mindMaps,
+      stickyNotes: snapshot.stickyNotes,
     };
     for (const storeName of STORES) {
       const store = transaction.objectStore(storeName);

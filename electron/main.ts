@@ -20,6 +20,7 @@ import type {
   ProviderId,
   RendererConfig,
 } from "./intelligence/types.js";
+import { isBetaVersion } from "./update-service.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 let runtime: IntelligenceRuntime | undefined;
@@ -50,6 +51,7 @@ app.whenReady().then(async () => {
     updater: updaterPackage.autoUpdater,
     feedUrl: process.env.ZHIYE_UPDATE_URL,
     packaged: app.isPackaged,
+    version: app.getVersion(),
   });
   const backups = new BackupService({ userData, safeStorage });
   await runtime.initialize();
@@ -146,6 +148,20 @@ function registerHandlers(
   handle("updates:get-status", () => updates.status());
   handle("updates:check", () => updates.check());
   handle("updates:install", () => updates.install());
+  handle("diagnostics:get-context", async () => {
+    const settings = await settingsStore.publicSettings();
+    return {
+      appVersion: app.getVersion(),
+      channel: isBetaVersion(app.getVersion()) ? "beta" : "stable",
+      platform: process.platform,
+      arch: process.arch,
+      locale: app.getLocale(),
+      provider: settings.provider,
+      model: settings.model,
+      configured: settings.firstRunComplete,
+      hasApiKeyByProvider: settings.hasApiKeyByProvider,
+    };
+  });
   handle("backup:get-settings", () => backups.settings());
   handle<{ passphrase?: string }>(
     "backup:choose-directory",

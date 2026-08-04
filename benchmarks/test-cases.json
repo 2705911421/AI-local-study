@@ -1,0 +1,706 @@
+[
+  {
+    "materialId": "tablex-two-column",
+    "question": "What is TabLeX designed to extract from scientific tables?",
+    "keywords": ["structure", "content", "table"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "tablex-two-column",
+    "question": "How does TabLeX handle complex table structures?",
+    "keywords": ["table", "structure", "extraction"],
+    "expectedPage": [1, 5, 10],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "tablex-two-column",
+    "question": "What datasets are used for evaluation?",
+    "keywords": ["table", "data", "result"],
+    "expectedPage": [1, 8, 12],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "pubtabnet-tables",
+    "question": "What kind of recognition task is PubTabNet intended to evaluate?",
+    "keywords": ["table", "structure", "recognition"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "pubtabnet-tables",
+    "question": "What metrics are used to evaluate table recognition?",
+    "keywords": ["metric", "table", "detection"],
+    "expectedPage": [1, 5, 10],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-medical-adversarial",
+    "question": "SB、AB、BE 分别是什么？",
+    "keywords": ["标准碳酸氢盐", "实际碳酸氢盐", "碱剩余"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 3
+  },
+  {
+    "materialId": "synthetic-medical-adversarial",
+    "question": "β受体阻断药为什么降低心率？",
+    "keywords": ["β1", "交感", "心率"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 3
+  },
+  {
+    "materialId": "synthetic-medical-adversarial",
+    "question": "普萘洛尔的作用机制是什么？",
+    "keywords": ["普萘洛尔", "β1", "阻断"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 3
+  },
+  {
+    "materialId": "synthetic-medical-adversarial",
+    "question": "代谢性酸中毒的原因有哪些？",
+    "keywords": ["酸负荷增加", "碳酸氢根丢失", "阴离子间隙"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 3
+  },
+  {
+    "materialId": "synthetic-medical-adversarial",
+    "question": "What is the normal range for PaCO2?",
+    "keywords": ["35", "45", "paco2"],
+    "expectedPage": [1, 3],
+    "minCitations": 1,
+    "maxCitations": 3
+  },
+  {
+    "materialId": "libretexts-anatomy-physiology",
+    "question": "What is anatomy?",
+    "keywords": ["anatomy", "structure", "body"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "libretexts-anatomy-physiology",
+    "question": "What are the main topics covered?",
+    "keywords": ["anatomy", "physiology", "book"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "fda-orange-book",
+    "question": "What prescription drug products are listed?",
+    "keywords": ["drug", "prescription", "product"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "fda-orange-book",
+    "question": "What drug products are listed in this document?",
+    "keywords": ["drug", "product", "list"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "gutenberg-physiology-epub",
+    "question": "What is the heart?",
+    "keywords": ["heart", "blood", "vessel"],
+    "expectedPage": [1, 5, 10, 20, 50, 100, 150, 200],
+    "minCitations": 1,
+    "maxCitations": 12
+  },
+  {
+    "materialId": "gutenberg-physiology-epub",
+    "question": "How does muscle contraction work?",
+    "keywords": ["muscle", "nerve", " contraction"],
+    "expectedPage": [1, 10, 30, 50, 80, 120, 150, 200],
+    "minCitations": 1,
+    "maxCitations": 12
+  },
+  {
+    "materialId": "gutenberg-physiology-epub",
+    "question": "What is blood pressure?",
+    "keywords": ["blood", "pressure", "artery"],
+    "expectedPage": [1, 10, 30, 50, 80, 120, 150, 200],
+    "minCitations": 1,
+    "maxCitations": 12
+  },
+  {
+    "materialId": "pdfjs-real-two-column",
+    "question": "What is this document about?",
+    "keywords": ["planning", "land", "use"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "pdfjs-real-two-column",
+    "question": "What methodology is used in this study?",
+    "keywords": ["planning", "method", "analysis"],
+    "expectedPage": [1, 3, 5],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "public-domain-scanned-medical-textbook",
+    "question": "What is this book about?",
+    "keywords": ["body", "man", "book"],
+    "expectedPage": [1, 5, 10, 20, 50, 100, 200, 300],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "public-domain-scanned-medical-textbook",
+    "question": "What organs are discussed in this book?",
+    "keywords": ["heart", "brain", "bone"],
+    "expectedPage": [1, 10, 50, 100, 200, 300, 400],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "chinese-medicine-textbook",
+    "question": "这本书的主要内容是什么？",
+    "keywords": ["中医", "药", "方"],
+    "expectedPage": [1, 5, 10, 20, 50, 80, 100, 130],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "chinese-medicine-textbook",
+    "question": "What traditional remedies are described?",
+    "keywords": ["herb", "tea", "drink"],
+    "expectedPage": [1, 10, 30, 60, 80, 100, 130],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-chinese-textbook",
+    "question": "线粒体为什么被称为细胞的动力车间？",
+    "keywords": ["线粒体", "ATP", "能量"],
+    "expectedPage": [2, 3],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-textbook",
+    "question": "蛋白质的基本组成单位是什么？",
+    "keywords": ["氨基酸", "蛋白质", "脱水缩合"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-textbook",
+    "question": "组成细胞的基本元素有哪些？",
+    "keywords": ["碳", "C", "元素"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-textbook",
+    "question": "ATP的结构简式是什么？",
+    "keywords": ["ATP", "腺苷", "磷酸"],
+    "expectedPage": [3],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-textbook",
+    "question": "酶的特性有哪些？",
+    "keywords": ["高效性", "专一性", "酶"],
+    "expectedPage": [3],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-textbook",
+    "question": "叶绿体的主要功能是什么？",
+    "keywords": ["光合作用", "叶绿体", "类囊体"],
+    "expectedPage": [2, 3],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pharmacology",
+    "question": "β受体阻断药分为哪几类？",
+    "keywords": ["非选择性", "选择性", "β1"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pharmacology",
+    "question": "普萘洛尔的不良反应有哪些？",
+    "keywords": ["心动过缓", "支气管痉挛", "普萘洛尔"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pharmacology",
+    "question": "ACEI的主要不良反应是什么？",
+    "keywords": ["干咳", "高血钾", "缓激肽"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pharmacology",
+    "question": "钙通道阻滞药的作用机制是什么？",
+    "keywords": ["钙通道", "Ca2+", "血管平滑肌"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pharmacology",
+    "question": "Which drugs are selective β1 blockers?",
+    "keywords": ["atenolol", "metoprolol", "β1"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pathophysiology",
+    "question": "SB、AB、BE分别代表什么？",
+    "keywords": ["标准碳酸氢盐", "实际碳酸氢盐", "碱剩余"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pathophysiology",
+    "question": "代谢性酸中毒的原因有哪些？",
+    "keywords": ["酸负荷增加", "碳酸氢根", "肾排酸"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pathophysiology",
+    "question": "呼吸性酸中毒的常见原因是什么？",
+    "keywords": ["呼吸中枢", "气道阻塞", "PaCO2"],
+    "expectedPage": [3],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pathophysiology",
+    "question": "正常人体液pH范围是多少？",
+    "keywords": ["7.35", "7.45", "pH"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 3
+  },
+  {
+    "materialId": "synthetic-medical-pathophysiology",
+    "question": "PaCO2的正常值是多少？",
+    "keywords": ["35", "45", "mmHg"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 3
+  },
+  {
+    "materialId": "synthetic-medical-pathophysiology",
+    "question": "What is the normal range for blood pH?",
+    "keywords": ["7.35", "7.45", "pH"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 3
+  },
+  {
+    "materialId": "synthetic-two-column-academic",
+    "question": "What is the main topic of this paper?",
+    "keywords": ["layout", "document", "analysis"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-two-column-academic",
+    "question": "What methods are compared in Table 1?",
+    "keywords": ["Faster", "DETR", "LayoutLM"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-two-column-academic",
+    "question": "What dataset is used for evaluation?",
+    "keywords": ["PubLayNet", "DocBank", "dataset"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-two-column-academic",
+    "question": "What loss function is used?",
+    "keywords": ["loss", "focal", "IoU"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-complex-tables",
+    "question": "青霉素G属于哪类抗菌药物？",
+    "keywords": ["β-内酰胺", "青霉素", "细胞壁"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-complex-tables",
+    "question": "Na+的正常范围是多少？",
+    "keywords": ["135", "sodium", "electrolyte"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-complex-tables",
+    "question": "万古霉素的主要抗菌谱是什么？",
+    "keywords": ["万古霉素", "G+", "MRSA"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-complex-tables",
+    "question": "What is the half-life of amoxicillin?",
+    "keywords": ["1", "1.5", "hour"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-complex-tables",
+    "question": "Which antibiotics require renal dose adjustment?",
+    "keywords": ["dose", "kidney", "renal"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-cross-page-table",
+    "question": "华法林与阿司匹林的相互作用是什么？",
+    "keywords": ["出血", "风险", "华法林"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-cross-page-table",
+    "question": "哪些药物相互作用属于高风险？",
+    "keywords": ["高风险", "相互作用"],
+    "expectedPage": [1, 2, 3],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-cross-page-table",
+    "question": "What drug interactions involve amiodarone?",
+    "keywords": ["amiodarone", "drug", "warfarin"],
+    "expectedPage": [1, 2, 3],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-chinese-scanned-like",
+    "question": "代谢性酸中毒的原因有哪些？",
+    "keywords": ["酸负荷增加", "碳酸氢根", "肾排酸"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-scanned-like",
+    "question": "SB和AB分别代表什么？",
+    "keywords": ["标准碳酸氢盐", "实际碳酸氢盐"],
+    "expectedPage": [1, 2, 3],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-scanned-like",
+    "question": "β受体阻断药有哪些？",
+    "keywords": ["β", "受体", "阻断"],
+    "expectedPage": [1, 2, 3, 4, 5, 6],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-scanned-like",
+    "question": "易错符号有哪些？",
+    "keywords": ["Na+", "HCO3-", "Ca2+"],
+    "expectedPage": [1, 2, 3, 4],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-overlapping-text",
+    "question": "What is the primary text layer about?",
+    "keywords": ["primary", "text", "readable"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-overlapping-text",
+    "question": "What topics are discussed in the right column?",
+    "keywords": ["cardiovascular", "blood pressure", "heart"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-formula-heavy",
+    "question": "What is the main contribution of this paper?",
+    "keywords": ["method", "approach", "result"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-formula-heavy",
+    "question": "What mathematical framework is used?",
+    "keywords": ["function", "model", "system"],
+    "expectedPage": [1, 3, 5],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-docbank",
+    "question": "What is DocBank about?",
+    "keywords": ["data", "model", "task"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-docbank",
+    "question": "How large is the DocBank dataset?",
+    "keywords": ["analysis", "result", "method"],
+    "expectedPage": [1, 3, 5],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-table-parsing",
+    "question": "What approach is used for table parsing?",
+    "keywords": ["attention", "transformer", "method"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-table-parsing",
+    "question": "What datasets are used for evaluation?",
+    "keywords": ["attention", "result", "method"],
+    "expectedPage": [1, 4, 6],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-bert-layout",
+    "question": "What is this paper about?",
+    "keywords": ["network", "generative", "model"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-bert-layout",
+    "question": "What pre-training objectives are used?",
+    "keywords": ["network", "training", "model"],
+    "expectedPage": [1, 3, 5],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-multimodal-doc",
+    "question": "What multimodal approach is proposed?",
+    "keywords": ["software", "method", "system"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-llm-survey",
+    "question": "What is this survey about?",
+    "keywords": ["language", "model", "survey"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-llm-survey",
+    "question": "What capabilities of LLMs are discussed?",
+    "keywords": ["language", "model", "task"],
+    "expectedPage": [1, 3, 5],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "gutenberg-anatomy-epub",
+    "question": "What is the main topic of this book?",
+    "keywords": ["sweating", "sickness", "plague"],
+    "expectedPage": [1, 5, 10, 20],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "gutenberg-anatomy-epub",
+    "question": "What body systems are described?",
+    "keywords": ["sweat", "fever", "disease"],
+    "expectedPage": [1, 10, 30, 50],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "gutenberg-physiology-epub-2",
+    "question": "What physiological processes are discussed?",
+    "keywords": ["physiology", "function", "process"],
+    "expectedPage": [1, 10, 30, 50],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "gutenberg-physiology-epub-2",
+    "question": "What is discussed about circulation?",
+    "keywords": ["blood", "heart", "circulation"],
+    "expectedPage": [1, 10, 30, 50, 80],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-chinese-doc",
+    "question": "这篇论文的主要内容是什么？",
+    "keywords": ["elastic", "properties", "model"],
+    "expectedPage": [1, 2],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "arxiv-chinese-doc",
+    "question": "使用了什么实验方法？",
+    "keywords": ["elastic", "method", "result"],
+    "expectedPage": [1, 3, 5],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-chinese-medical-epub",
+    "question": "病理生理学的主要任务是什么？",
+    "keywords": ["病因", "发病机制", "功能代谢"],
+    "expectedPage": [1, 5, 10, 20],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-medical-epub",
+    "question": "脱水分为哪几种类型？",
+    "keywords": ["高渗性", "低渗性", "等渗性"],
+    "expectedPage": [1, 5, 10, 20],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-medical-epub",
+    "question": "代谢性酸中毒分为哪两类？",
+    "keywords": ["AG增高型", "AG正常型"],
+    "expectedPage": [1, 5, 10, 20, 30],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-medical-epub",
+    "question": "发热的时相包括哪些？",
+    "keywords": ["体温上升期", "高温持续期", "体温下降期"],
+    "expectedPage": [1, 5, 10, 20, 30, 40],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-medical-epub",
+    "question": "内源性致热原有哪些？",
+    "keywords": ["IL-1", "IL-6", "TNF"],
+    "expectedPage": [1, 5, 10, 20, 30, 40],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-mixed-image-text",
+    "question": "What electrolytes are mentioned?",
+    "keywords": ["Na+", "HCO3-", "electrolyte"],
+    "expectedPage": [1, 2, 3, 4, 5, 6],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-mixed-image-text",
+    "question": "What enzymes are discussed?",
+    "keywords": ["enzyme", "kinetics", "Michaelis"],
+    "expectedPage": [1, 2, 3, 4, 5, 6],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "wellcome-chinese-collection",
+    "question": "这本书的主要内容是什么？",
+    "keywords": ["中医", "传统", "药方"],
+    "expectedPage": [1, 5, 10],
+    "minCitations": 1,
+    "maxCitations": 6
+  },
+  {
+    "materialId": "synthetic-medical-adversarial",
+    "question": "What blood gas indicators are described?",
+    "keywords": ["SB", "AB", "BE", "PaCO2"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pathophysiology",
+    "question": "What is the compensatory mechanism for metabolic acidosis?",
+    "keywords": ["呼吸", "代偿", "Kussmaul"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-chinese-textbook",
+    "question": "What are the main organelles in a cell?",
+    "keywords": ["线粒体", "叶绿体", "内质网"],
+    "expectedPage": [2, 3],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-medical-pharmacology",
+    "question": "What are the indications for verapamil?",
+    "keywords": ["verapamil", "calcium", "hypertension"],
+    "expectedPage": [2],
+    "minCitations": 1,
+    "maxCitations": 5
+  },
+  {
+    "materialId": "synthetic-complex-tables",
+    "question": "What is the mechanism of macrolide antibiotics?",
+    "keywords": ["macrolide", "erythromycin", "protein"],
+    "expectedPage": [1],
+    "minCitations": 1,
+    "maxCitations": 5
+  }
+]

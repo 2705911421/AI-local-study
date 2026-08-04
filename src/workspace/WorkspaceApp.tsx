@@ -142,6 +142,8 @@ function AppInner({ runtime: ctx }: { runtime: WorkspaceRuntime }) {
     chatHydratingDocumentId,
     isThinking,
     setNotes,
+    setMindMaps,
+    setStickyNotes,
     highlights,
     setHighlights,
     setQuizAttempts,
@@ -612,6 +614,8 @@ function AppInner({ runtime: ctx }: { runtime: WorkspaceRuntime }) {
         );
         setDocuments([demoDocument, ...saved]);
         setNotes(workspace.notes);
+        setMindMaps(workspace.mindMaps);
+        setStickyNotes(workspace.stickyNotes);
         setHighlights(workspace.highlights);
         setReadingStates(workspace.readingStates);
         setQuizAttempts(workspace.quizAttempts);
@@ -671,6 +675,8 @@ function AppInner({ runtime: ctx }: { runtime: WorkspaceRuntime }) {
     setHighlights,
     setMessages,
     setNotes,
+    setMindMaps,
+    setStickyNotes,
     setNotice,
     setPdfFocusPage,
     setPreferences,
@@ -1173,6 +1179,10 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
     string | null
   >(null);
   const [notes, setNotes] = useState<StudyNote[]>([]);
+  const [mindMaps, setMindMaps] = useState<import("../types").MindMap[]>([]);
+  const [stickyNotes, setStickyNotes] = useState<
+    import("../types").StickyNote[]
+  >([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
   const [reviewSchedules, setReviewSchedules] = useState<ReviewSchedule[]>([]);
@@ -1298,6 +1308,10 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       setIsThinking,
       notes,
       setNotes,
+      mindMaps,
+      setMindMaps,
+      stickyNotes,
+      setStickyNotes,
       highlights,
       setHighlights,
       quizAttempts,
@@ -1409,6 +1423,8 @@ function App({ studyRepository = defaultRepository }: AppProps = {}) {
       chatHydratingDocumentId,
       isThinking,
       notes,
+      mindMaps,
+      stickyNotes,
       highlights,
       quizAttempts,
       reviewSchedules,

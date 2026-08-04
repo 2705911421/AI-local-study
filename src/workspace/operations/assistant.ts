@@ -307,3 +307,176 @@ export function useNoteManager(ctx: NoteRuntime) {
 
   return { addNote, deleteNote, exportNotes };
 }
+
+// ─── useAiNoteGenerator ────────────────────────────────────────────
+
+type AiNoteRuntime = Pick<
+  WorkspaceRuntime,
+  | "activeChapter"
+  | "activeDocument"
+  | "config"
+  | "isThinking"
+  | "modelOnline"
+  | "notes"
+  | "repository"
+  | "setIsThinking"
+  | "setNotes"
+  | "setNotice"
+>;
+
+export function useAiNoteGenerator(ctx: AiNoteRuntime) {
+  const {
+    activeDocument,
+    activeChapter,
+    notes,
+    setNotes,
+    config,
+    modelOnline,
+    isThinking,
+    setIsThinking,
+    setNotice,
+  } = ctx;
+  const { persistCommand } = usePersistence(ctx);
+
+  const generateNoteForBlock = useCallback(
+    async (blockId: string, blockText: string): Promise<boolean> => {
+      if (isThinking) {
+        setNotice("AI 正在处理中，请稍候");
+        return false;
+      }
+
+      // Check if an embedded note already exists for this block
+      const existingNote = notes.find(
+        (n) =>
+          n.blockId === blockId &&
+          n.embedded &&
+          n.documentId === activeDocument.id,
+      );
+      if (existingNote) {
+        setNotice("该段落已有 AI 笔记");
+        return false;
+      }
+
+      setIsThinking(true);
+      try {
+        const prompt = `请为以下教材段落生成一份简洁的学习笔记（3-5句话），包含核心概念、关键要点和一个记忆提示。直接输出笔记内容，不要加标题或前缀。
+
+教材段落：
+${blockText.slice(0, 600)}`;
+
+        const citations = [
+          {
+            blockId,
+            locator: "",
+            excerpt: blockText.slice(0, 300),
+            score: 1,
+          },
+        ];
+
+        let noteText: string;
+        if (modelOnline) {
+          try {
+            const { askModel: ask } =
+              await import("../../lib/intelligence/client");
+            noteText = await ask(
+              prompt,
+              citations,
+              config,
+              new AbortController().signal,
+            );
+          } catch {
+            setNotice("AI 笔记生成失败，请检查模型连接后重试");
+            return false;
+          }
+        } else {
+          noteText = generateFallbackNote(blockText);
+        }
+
+        const now = Date.now();
+        const note = {
+          id: crypto.randomUUID(),
+          documentId: activeDocument.id,
+          chapterId: activeChapter.id,
+          text: noteText,
+          createdAt: now,
+          updatedAt: now,
+          blockId,
+          embedded: true,
+          source: "ai-generated" as const,
+        };
+
+        const workspace = await persistCommand(
+          { type: "saveNote", note },
+          "AI 笔记保存失败",
+        );
+        if (!workspace) return false;
+
+        setNotes(workspace.notes);
+        setNotice("AI 笔记已生成");
+        return true;
+      } finally {
+        setIsThinking(false);
+      }
+    },
+    [
+      isThinking,
+      notes,
+      activeDocument.id,
+      activeChapter.id,
+      config,
+      modelOnline,
+      persistCommand,
+      setNotes,
+      setIsThinking,
+      setNotice,
+    ],
+  );
+
+  const deleteAiNote = useCallback(
+    async (noteId: string): Promise<boolean> => {
+      const workspace = await persistCommand(
+        { type: "deleteNote", noteId },
+        "笔记删除失败",
+      );
+      if (!workspace) return false;
+      setNotes(workspace.notes);
+      setNotice("笔记已删除");
+      return true;
+    },
+    [persistCommand, setNotes, setNotice],
+  );
+
+  const updateAiNote = useCallback(
+    async (noteId: string, newText: string): Promise<boolean> => {
+      const existing = notes.find((n) => n.id === noteId);
+      if (!existing) return false;
+      const updatedNote = {
+        ...existing,
+        text: newText,
+        updatedAt: Date.now(),
+      };
+      const workspace = await persistCommand(
+        { type: "saveNote", note: updatedNote },
+        "笔记更新失败",
+      );
+      if (!workspace) return false;
+      setNotes(workspace.notes);
+      setNotice("笔记已更新");
+      return true;
+    },
+    [notes, persistCommand, setNotes, setNotice],
+  );
+
+  return { generateNoteForBlock, deleteAiNote, updateAiNote };
+}
+
+function generateFallbackNote(text: string): string {
+  const sentences = text
+    .replace(/\s+/g, " ")
+    .split(/[。！？；]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 4);
+
+  const keyPoints = sentences.slice(0, 3);
+  return `核心要点：${keyPoints.join("；")}。建议结合教材上下文深入理解以上概念。`;
+}

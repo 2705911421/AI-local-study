@@ -9,6 +9,8 @@ import type {
   ReviewSchedule,
   StudyDocument,
   StudyNote,
+  MindMap,
+  StickyNote,
   UserPreferences,
 } from "../types";
 import type { ImportProgress } from "../lib/importPipeline";
@@ -16,8 +18,8 @@ import type { LlmConfig, ProviderStatus } from "../lib/intelligence/client";
 import type { StudyRepository } from "../lib/studyRepository";
 
 export type Overlay = "upload" | "settings" | "quiz" | "review" | null;
-export type RightTab = "mentor" | "notes";
-export type MobileStudyView = "reader" | "mentor" | "notes";
+export type RightTab = "mentor" | "notes" | "mindmap";
+export type MobileStudyView = "reader" | "mentor" | "notes" | "mindmap";
 export type SearchScope = "chapter" | "document" | "library";
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 
@@ -62,6 +64,10 @@ export interface WorkspaceRuntime {
   // ── Notes ──
   notes: StudyNote[];
   setNotes: React.Dispatch<React.SetStateAction<StudyNote[]>>;
+  mindMaps: MindMap[];
+  setMindMaps: React.Dispatch<React.SetStateAction<MindMap[]>>;
+  stickyNotes: StickyNote[];
+  setStickyNotes: React.Dispatch<React.SetStateAction<StickyNote[]>>;
 
   // ── Highlights ──
   highlights: Highlight[];

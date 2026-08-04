@@ -1,0 +1,84 @@
+{
+  "version": 2,
+  "brand": "知页",
+  "sourcePolicy": "Pexels MCP for real scenes; existing generated illustration for concept; CSS and HTML for deterministic UI geometry",
+  "assets": [
+    {
+      "name": "hero-book-awakening",
+      "source": "/assets/source/hero-book-awakening.png",
+      "optimized": "/assets/optimized/hero-book-awakening.webp",
+      "mobile": "crop-center",
+      "width": 1568,
+      "height": 1003,
+      "usage": "homepage hero concept illustration",
+      "alt": "书页、手写批注和知识连接的概念插画",
+      "prompt": "Existing generated editorial illustration retained from the previous asset pass."
+    },
+    {
+      "name": "hero-old-book",
+      "source": "/assets/source/pexels-old-book-desk.jpeg",
+      "optimized": "/assets/optimized/pexels-old-book-desk.webp",
+      "mobile": "crop-right",
+      "width": 1880,
+      "height": 1253,
+      "usage": "homepage hero warm photographic layer",
+      "alt": "暖光照亮的旧书与木质阅读桌",
+      "prompt": "Pexels MCP search: old books sunlight; selected photo 15833106 by Arturo Añez."
+    },
+    {
+      "name": "library-open-books",
+      "source": "/assets/source/pexels-library-open-books.jpeg",
+      "optimized": "/assets/optimized/pexels-library-open-books.webp",
+      "mobile": "crop-center",
+      "width": 1880,
+      "height": 1253,
+      "usage": "reserved editorial material scene",
+      "alt": "暖色图书馆中摊开的书",
+      "prompt": "Pexels MCP search: old books sunlight academic study room; selected photo 34084875 by Sami Türk."
+    },
+    {
+      "name": "local-window-desk",
+      "source": "/assets/source/pexels-window-desk.jpeg",
+      "optimized": "/assets/optimized/pexels-window-desk.webp",
+      "mobile": "crop-center",
+      "width": 1880,
+      "height": 1253,
+      "usage": "local-first chapter",
+      "alt": "窗边的书桌、书本和笔记本电脑",
+      "prompt": "Pexels MCP search: minimalist desk books natural light; selected photo 7594652 by Mikhail Nilov."
+    },
+    {
+      "name": "product-reader",
+      "source": "/release/pdf-reader.png",
+      "optimized": "/release/pdf-reader.png",
+      "mobile": "scale-width",
+      "width": 1500,
+      "height": 713,
+      "usage": "real product UI showcase",
+      "alt": "知页阅读器产品界面",
+      "prompt": "Captured from the actual product UI."
+    },
+    {
+      "name": "source-trace-visual",
+      "source": null,
+      "optimized": null,
+      "mobile": "html-only",
+      "width": null,
+      "height": null,
+      "usage": "book awakening stage",
+      "alt": "原文高亮与回答卡片之间的可追溯关系",
+      "prompt": "Rendered with HTML, CSS highlight, and a semantic connector line."
+    },
+    {
+      "name": "paper-texture",
+      "source": null,
+      "optimized": null,
+      "mobile": "same",
+      "width": null,
+      "height": null,
+      "usage": "global background texture",
+      "alt": "",
+      "prompt": "Rendered with CSS noise texture."
+    }
+  ]
+}

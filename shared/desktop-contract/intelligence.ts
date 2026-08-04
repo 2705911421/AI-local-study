@@ -125,6 +125,18 @@ export interface DesktopUpdateStatus {
   message: string;
 }
 
+export interface DesktopDiagnosticsContext {
+  appVersion: string;
+  channel: "beta" | "stable";
+  platform: string;
+  arch: string;
+  locale: string;
+  provider: ProviderId;
+  model: string;
+  configured: boolean;
+  hasApiKeyByProvider: Partial<Record<ProviderId, boolean>>;
+}
+
 export interface DesktopAutoBackupSettings {
   enabled: boolean;
   directory: string;
@@ -150,6 +162,7 @@ export interface DesktopIntelligenceBridge {
   getUpdateStatus(): Promise<DesktopUpdateStatus>;
   checkForUpdates(): Promise<DesktopUpdateStatus>;
   installUpdate(): Promise<boolean>;
+  getDiagnosticsContext(): Promise<DesktopDiagnosticsContext>;
   getAutoBackupSettings(): Promise<DesktopAutoBackupSettings>;
   chooseAutoBackupDirectory(
     passphrase: string,

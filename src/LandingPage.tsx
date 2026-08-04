@@ -1,116 +1,87 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   ArrowRight,
   BookOpenText,
-  Brain,
   Check,
   DownloadSimple,
-  FilePdf,
-  Fingerprint,
+  FileText,
+  LockKey,
+  MagnifyingGlass,
   NotePencil,
-  PaperPlaneTilt,
-  Quotes,
   ShieldCheck,
+  Sparkle,
   WindowsLogo,
 } from "@phosphor-icons/react";
-import {
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useScroll,
-  useSpring,
-  useTransform,
-} from "motion/react";
+import { motion, useReducedMotion, useScroll, useSpring } from "motion/react";
 import "./landing.css";
 
-const studyFlow = [
+const workflow = [
   {
-    icon: FilePdf,
-    title: "导入教材",
-    text: "PDF 与 EPUB 在本机解析。扫描版 PDF 可按需启用本地 OCR。",
-    note: "从你的资料开始",
-  },
-  {
+    number: "01",
+    title: "打开一本教材",
+    text: "PDF 与 EPUB 在本机解析，从你正在读的那一页开始。",
     icon: BookOpenText,
-    title: "读懂原文",
-    text: "原版页面与智能文本双向定位，点击引用就能回到教材位置。",
-    note: "答案始终可追溯",
   },
   {
-    icon: Brain,
-    title: "检验理解",
-    text: "围绕当前教材问答、练习与复习。依据不足时，知页会明确说明。",
-    note: "把阅读变成掌握",
+    number: "02",
+    title: "提出一个问题",
+    text: "对着当前段落提问，不需要离开原文，也不需要重新描述上下文。",
+    icon: NotePencil,
+  },
+  {
+    number: "03",
+    title: "找到依据",
+    text: "回答附带章节、页码和原文位置，依据不足时会明确说明。",
+    icon: MagnifyingGlass,
+  },
+  {
+    number: "04",
+    title: "形成自己的理解",
+    text: "继续追问、练习和复习，让答案回到你的语言里。",
+    icon: Sparkle,
   },
 ];
 
-const boundaries = [
-  "教材与学习记录默认保存在本机",
-  "回答限定在当前导入的教材范围",
-  "外部智能服务由你主动选择和连接",
-  "学习备份支持 AES-256-GCM 加密",
+const featureNotes = [
+  {
+    title: "原文定位",
+    text: "答案旁边就是来源，读完可以立刻核对。",
+    icon: FileText,
+  },
+  {
+    title: "上下文理解",
+    text: "知页只围绕当前教材工作，不把你带离阅读。",
+    icon: Sparkle,
+  },
+  {
+    title: "本地优先",
+    text: "教材与学习轨迹保存在本机，权限在你手中。",
+    icon: LockKey,
+  },
 ];
 
-const productPrinciples = [
-  ["01", "本地解析"],
-  ["02", "原文引用"],
-  ["03", "依据不足时拒答"],
-  ["04", "Windows x64"],
-];
-
-const reveal = {
-  initial: { opacity: 0, y: 42, rotate: 0.6 },
-  visible: { opacity: 1, y: 0, rotate: 0 },
+type ReleaseManifest = {
+  available: boolean;
+  version: string;
+  downloadUrl: string;
+  size: number;
+  sha256: string;
+  releaseDate: string;
 };
 
 export default function LandingPage() {
   const reduceMotion = useReducedMotion();
   const [isLeaving, setIsLeaving] = useState(false);
-  const [release, setRelease] = useState<{
-    available: boolean;
-    version: string;
-    downloadUrl: string;
-    size: number;
-    sha256: string;
-    releaseDate: string;
-  } | null>(null);
-  const pageRef = useRef<HTMLDivElement>(null);
-  const pointerX = useMotionValue(0);
-  const pointerY = useMotionValue(0);
-  const calmX = useSpring(pointerX, { stiffness: 90, damping: 24 });
-  const calmY = useSpring(pointerY, { stiffness: 90, damping: 24 });
-  const sketchX = useTransform(calmX, [-0.5, 0.5], [-18, 18]);
-  const sketchY = useTransform(calmY, [-0.5, 0.5], [-12, 12]);
-  const productX = useTransform(calmX, [-0.5, 0.5], [10, -10]);
-  const productY = useTransform(calmY, [-0.5, 0.5], [7, -7]);
-  const questionRotate = useTransform(calmX, [-0.5, 0.5], [-5, 5]);
+  const [release, setRelease] = useState<ReleaseManifest | null>(null);
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 100, damping: 28 });
-  const paperDrift = useTransform(progress, [0, 1], [0, -130]);
-
-  useEffect(() => {
-    if (!isLeaving) return;
-    const timer = window.setTimeout(
-      () => {
-        window.location.assign(new URL("./app", window.location.href).href);
-      },
-      reduceMotion ? 20 : 720,
-    );
-    return () => window.clearTimeout(timer);
-  }, [isLeaving, reduceMotion]);
 
   useEffect(() => {
     let cancelled = false;
     void fetch(`${import.meta.env.BASE_URL}release/latest.json`)
       .then((response) => {
         if (!response.ok) throw new Error("release manifest unavailable");
-        return response.json();
+        return response.json() as Promise<ReleaseManifest>;
       })
       .then((manifest) => {
         if (!cancelled) setRelease(manifest);
@@ -123,17 +94,14 @@ export default function LandingPage() {
     };
   }, []);
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (reduceMotion || event.pointerType === "touch") return;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    pointerX.set((event.clientX - bounds.left) / bounds.width - 0.5);
-    pointerY.set((event.clientY - bounds.top) / bounds.height - 0.5);
-  };
-
-  const handlePointerLeave = () => {
-    pointerX.set(0);
-    pointerY.set(0);
-  };
+  useEffect(() => {
+    if (!isLeaving) return;
+    const timer = window.setTimeout(
+      () => window.location.assign(new URL("./app", window.location.href).href),
+      reduceMotion ? 20 : 520,
+    );
+    return () => window.clearTimeout(timer);
+  }, [isLeaving, reduceMotion]);
 
   const handleAppEntry = (event: ReactMouseEvent<HTMLAnchorElement>) => {
     if (
@@ -142,38 +110,24 @@ export default function LandingPage() {
       event.ctrlKey ||
       event.shiftKey ||
       event.altKey
-    ) {
+    )
       return;
-    }
     event.preventDefault();
-    if (!isLeaving) setIsLeaving(true);
+    setIsLeaving(true);
   };
 
-  const motionProps = reduceMotion
+  const reveal = reduceMotion
     ? {}
     : {
-        initial: "initial",
-        whileInView: "visible",
+        initial: { opacity: 0, y: 24 },
+        whileInView: { opacity: 1, y: 0 },
         viewport: { once: true, amount: 0.16 },
-        variants: reveal,
-        transition: {
-          duration: 0.72,
-          ease: [0.16, 1, 0.3, 1] as const,
-        },
+        transition: { duration: 0.68, ease: [0.22, 1, 0.36, 1] as const },
       };
 
   return (
-    <div
-      className="landing"
-      ref={pageRef}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
-    >
-      <motion.div
-        className="paper-grain"
-        style={reduceMotion ? undefined : { y: paperDrift }}
-        aria-hidden="true"
-      />
+    <div className="landing" id="top">
+      <div className="paper-grain" aria-hidden="true" />
       <aside className="reading-progress" aria-hidden="true">
         <span>知页</span>
         <div>
@@ -188,290 +142,394 @@ export default function LandingPage() {
           <small>本地教材伴学</small>
         </a>
         <nav aria-label="主导航">
+          <a href="#principle">理念</a>
           <a href="#workflow">怎么学习</a>
-          <a href="#privacy">隐私边界</a>
+          <a href="#local-first">安全与隐私</a>
           <a href="#download">Windows 版</a>
         </nav>
         <a className="nav-cta" href="./app" onClick={handleAppEntry}>
-          在线体验
-          <ArrowRight weight="bold" aria-hidden="true" />
+          打开工作台 <ArrowRight weight="bold" aria-hidden="true" />
         </a>
       </header>
 
       <main>
-        <section className="hero" id="top">
+        <section className="hero" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <p className="eyebrow">你的教材，你的学习现场</p>
-            <h1>教材留在本地，问题回到原文。</h1>
-            <p className="hero-lede">
-              导入 PDF 或 EPUB，知页只依据当前教材回答。
-            </p>
-            <div className="hero-actions">
+            <p className="eyebrow">KNOWLEDGE, WITH CONTEXT</p>
+            <motion.h1
+              id="hero-title"
+              {...(reduceMotion
+                ? {}
+                : {
+                    initial: { opacity: 0, y: 18 },
+                    animate: { opacity: 1, y: 0 },
+                    transition: { duration: 0.72 },
+                  })}
+            >
+              教材留在本地，<em>问题回到原文。</em>
+            </motion.h1>
+            <motion.p
+              className="hero-lede"
+              {...(reduceMotion
+                ? {}
+                : {
+                    initial: { opacity: 0, y: 14 },
+                    animate: { opacity: 1, y: 0 },
+                    transition: { delay: 0.12, duration: 0.7 },
+                  })}
+            >
+              知页把 PDF 与 EPUB
+              变成可以追问的知识空间。每一次回答，都带着页码、段落和上下文。
+            </motion.p>
+            <motion.div
+              className="hero-actions"
+              {...(reduceMotion
+                ? {}
+                : {
+                    initial: { opacity: 0, y: 12 },
+                    animate: { opacity: 1, y: 0 },
+                    transition: { delay: 0.22, duration: 0.7 },
+                  })}
+            >
               <a
                 className="primary-button"
                 href="./app"
                 onClick={handleAppEntry}
               >
-                打开在线体验
-                <ArrowRight weight="bold" aria-hidden="true" />
+                开始阅读 <ArrowRight weight="bold" aria-hidden="true" />
               </a>
               <a className="secondary-button" href="#download">
-                查看 Windows 版
+                查看 Windows 版 <DownloadSimple aria-hidden="true" />
               </a>
-            </div>
-            <div className="hero-pencil-note" aria-hidden="true">
-              <span>问题从这里出发</span>
-              <i />
-            </div>
-          </div>
-
-          <div className="hero-stage">
-            <motion.div
-              className="hero-sketch"
-              style={reduceMotion ? undefined : { x: sketchX, y: sketchY }}
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}illustrations/research-notebook.webp`}
-                alt=""
-                width="1568"
-                height="1003"
-              />
             </motion.div>
-            <motion.figure
-              className="hero-visual"
-              style={reduceMotion ? undefined : { x: productX, y: productY }}
-            >
-              <span className="paper-tape paper-tape-left" aria-hidden="true" />
-              <span
-                className="paper-tape paper-tape-right"
-                aria-hidden="true"
-              />
-              <div className="hero-frame">
-                <img
-                  src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
-                  alt="知页中同时显示教材原版页面、章节内容与伴学问答"
-                  width="1500"
-                  height="713"
-                />
-              </div>
-              <figcaption>
-                <span>同一阅读现场</span>
-                教材原版、章节目录与伴学问答
-              </figcaption>
-            </motion.figure>
-            <motion.div
-              className="question-orbit"
-              style={reduceMotion ? undefined : { rotate: questionRotate }}
-              aria-hidden="true"
-            >
-              ?
-            </motion.div>
-          </div>
-        </section>
-
-        <a className="mobile-section-nav" href="#workflow">
-          怎么学习
-          <ArrowRight weight="bold" aria-hidden="true" />
-        </a>
-
-        <section className="principle-strip" aria-label="产品原则">
-          {productPrinciples.map(([index, label], itemIndex) => (
-            <motion.div
-              key={label}
-              initial={reduceMotion ? false : { opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: itemIndex * 0.07, duration: 0.45 }}
-            >
-              <span>{index}</span>
-              <strong>{label}</strong>
-            </motion.div>
-          ))}
-        </section>
-
-        <section className="workflow section-shell" id="workflow">
-          <motion.div className="section-intro" {...motionProps}>
-            <p className="hand-note">一条能回到原文的学习路径</p>
-            <h2>从翻开教材，到真正掌握。</h2>
-            <p>
-              不是另一个泛泛聊天框。每一次回答、练习和笔记，都围绕你正在读的内容发生。
-            </p>
-          </motion.div>
-          <div className="flow-grid">
-            {studyFlow.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <motion.article
-                  className={`flow-item flow-item-${index + 1}`}
-                  key={item.title}
-                  {...motionProps}
-                  transition={{
-                    duration: 0.68,
-                    delay: reduceMotion ? 0 : index * 0.08,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                >
-                  <div className="flow-index">0{index + 1}</div>
-                  <div className="flow-icon">
-                    <Icon weight="duotone" aria-hidden="true" />
-                  </div>
-                  <div className="flow-content">
-                    <h3>{item.title}</h3>
-                    <p>{item.text}</p>
-                    <span>{item.note}</span>
-                  </div>
-                  <i className="scribble-line" aria-hidden="true" />
-                </motion.article>
-              );
-            })}
-          </div>
-        </section>
-
-        <motion.section
-          className="reading-story section-shell paper-sheet"
-          {...motionProps}
-        >
-          <div className="story-copy">
-            <Quotes weight="fill" aria-hidden="true" />
-            <h2>答案不是终点，原文才是。</h2>
-            <p>点击引用即可回到教材位置。整理后的内容不会替代你的原始教材。</p>
-            <div className="story-detail" aria-label="原文能力">
-              <span>PDF 原版阅读</span>
-              <span>语义分段</span>
-              <span>章节内检索</span>
+            <div className="hero-meta">
+              <span>
+                <Check weight="bold" /> 无需注册
+              </span>
+              <span>
+                <LockKey weight="bold" /> 内容留在你的设备
+              </span>
             </div>
           </div>
+
           <motion.div
-            className="story-image"
-            whileHover={reduceMotion ? undefined : { rotate: -0.45, y: -5 }}
-            transition={{ type: "spring", stiffness: 160, damping: 20 }}
+            className="hero-visual"
+            {...(reduceMotion
+              ? {}
+              : {
+                  initial: { opacity: 0 },
+                  animate: { opacity: 1 },
+                  transition: { delay: 0.08, duration: 0.86 },
+                })}
           >
-            <span className="paper-tape paper-tape-center" aria-hidden="true" />
             <img
-              src={`${import.meta.env.BASE_URL}release/text-correspondence.png`}
-              alt="知页智能文本与 PDF 原文段落对应高亮"
-              width="1365"
-              height="649"
+              className="hero-photo"
+              src={`${import.meta.env.BASE_URL}assets/optimized/pexels-old-book-desk.webp`}
+              alt="暖光照亮的旧书与木质阅读桌"
+              width="1880"
+              height="1253"
+              fetchPriority="high"
+            />
+            <img
+              className="hero-illustration"
+              src={`${import.meta.env.BASE_URL}assets/optimized/hero-book-awakening.webp`}
+              alt="书页、手写批注和知识连接的概念插画"
+              width="1568"
+              height="1003"
+            />
+            <div className="hero-reader-frame">
+              <div className="reader-toolbar">
+                <span className="reader-dot" />
+                <span className="reader-dot" />
+                <span className="reader-dot" />
+                <span className="reader-title">病理生理学 · 第六章</span>
+              </div>
+              <img
+                src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
+                alt="知页阅读器界面，原文与回答并列显示"
+                width="1500"
+                height="713"
+              />
+              <div className="answer-float">
+                <div className="answer-label">
+                  <Sparkle weight="fill" /> AI 回答
+                </div>
+                <p>理解发生在原文上下文中，而不是离开书页之后。</p>
+                <span>来源：第 42 页</span>
+              </div>
+            </div>
+            <div className="hero-caption">
+              阅读器 · 原文与理解在同一张桌面上
+            </div>
+          </motion.div>
+        </section>
+
+        <section
+          className="awakening"
+          id="awakening"
+          aria-labelledby="awakening-title"
+        >
+          <motion.div className="section-intro" {...reveal}>
+            <p className="eyebrow">KNOWLEDGE AWAKENING</p>
+            <h2 id="awakening-title">
+              书页先说话，<em>答案随后出现。</em>
+            </h2>
+            <p>知页不替你读书。它把提问、原文和理解放在同一张桌面上。</p>
+          </motion.div>
+          <motion.div className="awakening-stage" {...reveal}>
+            <img
+              className="awakening-photo"
+              src={`${import.meta.env.BASE_URL}assets/optimized/pexels-library-open-books.webp`}
+              alt=""
+              width="1880"
+              height="1253"
               loading="lazy"
             />
-          </motion.div>
-          <span className="margin-note" aria-hidden="true">
-            引用不是装饰
-            <br />
-            它是一条返回路径
-          </span>
-        </motion.section>
-
-        <section className="privacy section-shell" id="privacy">
-          <motion.div className="privacy-copy" {...motionProps}>
-            <div className="privacy-mark">
-              <Fingerprint weight="duotone" aria-hidden="true" />
+            <article className="book-page">
+              <span className="page-number">42</span>
+              <h3>工作记忆的容量</h3>
+              <p>
+                工作记忆负责暂时保存和处理信息。它的容量有限，因此理解复杂概念时，需要反复回到已有的上下文。
+              </p>
+              <p>
+                <mark>阅读不是把内容搬进脑中，而是在原文之间建立关系。</mark>
+              </p>
+            </article>
+            <div className="awakening-thread" aria-hidden="true" />
+            <div className="question-card">
+              <span>你的问题</span>
+              <strong>为什么需要上下文？</strong>
             </div>
-            <p className="hand-note">这条线，由你决定画在哪里</p>
-            <h2>本地优先，是产品边界。</h2>
-            <p>
-              知页不会替你决定教材发给谁。你可以完全使用本地能力，也可以主动连接自己选择的智能来源。
-            </p>
-          </motion.div>
-          <motion.div className="boundary-list" {...motionProps}>
-            {boundaries.map((item, index) => (
-              <motion.div
-                key={item}
-                whileHover={reduceMotion ? undefined : { x: 8 }}
-              >
-                <span className="boundary-number">0{index + 1}</span>
-                <Check weight="bold" aria-hidden="true" />
-                <span>{item}</span>
-              </motion.div>
-            ))}
+            <div className="answer-card">
+              <div>
+                <Sparkle weight="fill" />
+                <span>知页回答</span>
+              </div>
+              <p>
+                因为工作记忆容量有限，新的信息需要和原文中的关系连接起来，理解才会稳定。
+              </p>
+              <small>依据：第 42 页 · 工作记忆的容量</small>
+            </div>
           </motion.div>
         </section>
 
-        <motion.section
-          className="download section-shell paper-sheet"
-          id="download"
-          {...motionProps}
+        <section
+          className="principle-band"
+          id="principle"
+          aria-labelledby="principle-title"
         >
-          <div className="download-mark">
-            <WindowsLogo weight="duotone" aria-hidden="true" />
+          <div className="principle-mark" aria-hidden="true">
+            “
           </div>
-          <div className="download-copy">
-            <p className="eyebrow">Windows 桌面版</p>
-            <h2>为长时间阅读，留出一张安静的桌面。</h2>
-            <p>
-              首个正式版本面向 Windows
-              x64。签名安装包完成发布审核后开放下载，在线体验现在即可使用。
-            </p>
+          <div>
+            <h2 id="principle-title">
+              答案不是终点，
+              <br />
+              <span>原文才是。</span>
+            </h2>
+            <p>每一次提问，都回到你正在读的那一页。</p>
           </div>
-          <div className="download-actions">
-            {release?.available && release.downloadUrl ? (
-              <a
-                className="download-button"
-                href={release.downloadUrl}
-                aria-describedby="release-status"
+        </section>
+
+        <section
+          className="workflow-section"
+          id="workflow"
+          aria-labelledby="workflow-title"
+        >
+          <motion.div className="section-intro" {...reveal}>
+            <p className="eyebrow">A QUIET METHOD</p>
+            <h2 id="workflow-title">从翻开教材，到真正理解。</h2>
+            <p>把学习拆成四个清晰动作，AI 只在需要的地方出现。</p>
+          </motion.div>
+          <div className="workflow-timeline">
+            {workflow.map(({ number, title, text, icon: Icon }, index) => (
+              <motion.article
+                className="workflow-step"
+                key={number}
+                {...(reduceMotion
+                  ? {}
+                  : {
+                      initial: { opacity: 0, y: 18 },
+                      whileInView: { opacity: 1, y: 0 },
+                      viewport: { once: true, amount: 0.2 },
+                      transition: { delay: index * 0.08, duration: 0.55 },
+                    })}
               >
-                <DownloadSimple weight="bold" aria-hidden="true" />
-                下载 Windows {release.version}
-              </a>
-            ) : (
-              <button type="button" disabled aria-describedby="release-status">
-                <DownloadSimple weight="bold" aria-hidden="true" />
-                等待签名版本
-              </button>
-            )}
-            <span id="release-status">
-              {release?.available
-                ? `${(release.size / 1024 / 1024).toFixed(1)} MB · SHA-256 ${release.sha256.slice(0, 12)}…`
-                : "正式包将经过 Authenticode 签名验证"}
-            </span>
+                <div className="step-marker">
+                  <span>{number}</span>
+                  <i />
+                </div>
+                <div className="step-content">
+                  <div className="step-icon">
+                    <Icon size={22} weight="light" />
+                  </div>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                </div>
+              </motion.article>
+            ))}
           </div>
-          <PaperPlaneTilt
-            className="download-doodle"
-            weight="duotone"
-            aria-hidden="true"
-          />
-        </motion.section>
+        </section>
+
+        <section
+          className="showcase-section"
+          id="showcase"
+          aria-labelledby="showcase-title"
+        >
+          <motion.div className="showcase-copy" {...reveal}>
+            <p className="eyebrow">THE READING DESK</p>
+            <h2 id="showcase-title">
+              原文在左，
+              <br />
+              <em>理解在右。</em>
+            </h2>
+            <p>你不需要在窗口之间来回跳动。读到哪里，就从哪里提问。</p>
+            <div className="feature-list">
+              {featureNotes.map(({ title, text, icon: Icon }) => (
+                <div className="feature-row" key={title}>
+                  <span className="feature-icon">
+                    <Icon size={20} />
+                  </span>
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+          <motion.div className="showcase-screen" {...reveal}>
+            <img
+              src={`${import.meta.env.BASE_URL}release/pdf-reader.png`}
+              alt="知页阅读器产品界面"
+              width="1500"
+              height="713"
+              loading="lazy"
+            />
+            <div className="screen-label">
+              <span>原文定位</span>
+              <ArrowRight size={14} />
+              <span>AI 问答</span>
+            </div>
+          </motion.div>
+        </section>
+
+        <section
+          className="local-first"
+          id="local-first"
+          aria-labelledby="local-first-title"
+        >
+          <div className="local-first-inner">
+            <motion.div {...reveal}>
+              <p className="eyebrow">LOCAL BY DEFAULT</p>
+              <h2 id="local-first-title">
+                你的教材，
+                <br />
+                属于你自己。
+              </h2>
+              <p>
+                知识应该被理解，而不是被上传。教材、阅读记录和学习轨迹，始终掌握在你的设备里。
+              </p>
+            </motion.div>
+            <motion.div className="local-first-visual" {...reveal}>
+              <img
+                src={`${import.meta.env.BASE_URL}assets/optimized/pexels-window-desk.webp`}
+                alt="窗边的书桌、书本和笔记本电脑"
+                width="1880"
+                height="1253"
+                loading="lazy"
+              />
+              <div className="privacy-specs">
+                <div>
+                  <LockKey size={21} />
+                  <strong>本地存储</strong>
+                  <span>数据只在你的设备上</span>
+                </div>
+                <div>
+                  <ShieldCheck size={21} />
+                  <strong>透明可控</strong>
+                  <span>每次回答都可追溯</span>
+                </div>
+                <div>
+                  <FileText size={21} />
+                  <strong>原文优先</strong>
+                  <span>没有脱离上下文的答案</span>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        <section
+          className="download"
+          id="download"
+          aria-labelledby="download-title"
+        >
+          <div className="download-inner">
+            <motion.div {...reveal}>
+              <p className="eyebrow">FOR WINDOWS</p>
+              <h2 id="download-title">
+                为长时间阅读，
+                <br />
+                留下一张安静的桌面。
+              </h2>
+              <p>
+                在线体验现在即可打开。Windows x64
+                安装包会经过签名验证，再交到你手里。
+              </p>
+            </motion.div>
+            <motion.div className="download-card" {...reveal}>
+              <WindowsLogo size={28} weight="light" aria-hidden="true" />
+              {release?.available && release.downloadUrl ? (
+                <a className="primary-button" href={release.downloadUrl}>
+                  <DownloadSimple weight="bold" /> 下载 Windows{" "}
+                  {release.version}
+                </a>
+              ) : (
+                <button className="primary-button" type="button" disabled>
+                  <DownloadSimple weight="bold" /> Beta 暂不公开下载
+                </button>
+              )}
+              <span id="release-status">
+                {release?.available
+                  ? `${(release.size / 1024 / 1024).toFixed(1)} MB · SHA-256 ${release.sha256.slice(0, 12)}…`
+                  : "Beta 内测版本暂不公开下载；正式包将经过 Authenticode 签名验证"}
+              </span>
+            </motion.div>
+          </div>
+        </section>
+
+        <section className="closing" aria-labelledby="closing-title">
+          <p className="eyebrow">BEGIN WITH ONE QUESTION</p>
+          <h2 id="closing-title">让知识，回应你的问题。</h2>
+          <a className="primary-button" href="./app" onClick={handleAppEntry}>
+            开始探索 <ArrowRight weight="bold" />
+          </a>
+        </section>
       </main>
 
       <footer>
-        <div className="footer-brand">
+        <a className="footer-brand" href="#top">
           <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
-          <div>
-            <strong>知页</strong>
-            <span>本地教材伴学</span>
-          </div>
-        </div>
-        <p>阅读、问答、练习与笔记，始终围绕你的教材。</p>
+          <strong>知页</strong>
+          <span>本地教材伴学</span>
+        </a>
+        <p>阅读发生在你手中，理解回到原文。</p>
         <div className="footer-links">
-          <a href="./app" onClick={handleAppEntry}>
-            <NotePencil aria-hidden="true" />
-            在线体验
-          </a>
-          <a href="#privacy">
-            <ShieldCheck aria-hidden="true" />
-            隐私边界
-          </a>
+          <a href="#principle">理念</a>
+          <a href="#local-first">安全与隐私</a>
+          <a href="#download">Windows 版</a>
         </div>
       </footer>
 
       {isLeaving ? (
         <motion.div
           className="page-transition"
-          initial={reduceMotion ? false : { y: "100%", rotate: 1.5 }}
-          animate={{ y: 0, rotate: 0 }}
-          transition={{
-            duration: reduceMotion ? 0 : 0.68,
-            ease: [0.76, 0, 0.24, 1],
-          }}
-          aria-hidden="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
         >
-          <div>
-            <img
-              src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`}
-              alt=""
-            />
-            <span>把教材翻到工作台</span>
-          </div>
+          <img src={`${import.meta.env.BASE_URL}brand/logo-mark.svg`} alt="" />
+          <span>正在打开知页工作台</span>
         </motion.div>
       ) : null}
     </div>

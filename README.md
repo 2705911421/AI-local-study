@@ -72,6 +72,8 @@ docker run --rm -p 8080:8080 ghcr.io/2705911421/ai-local-study:latest
 
 访问 `http://127.0.0.1:8080/`。正式 Windows 安装包只会在通过 Authenticode 签名验证后附加到 Release；未签名构建仅供本地验收。
 
+v0.1 Beta 仅面向受邀内测人员。安装包位于私有 GitHub Pre-release，Beta 不使用自动更新；内测流程、隐私边界和反馈格式见 [`docs/beta-release.md`](docs/beta-release.md)。
+
 ## 构建与预览
 
 构建 Web 版：

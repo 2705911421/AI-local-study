@@ -1,6 +1,11 @@
-import { BookOpen, Brain, NotePencil } from "@phosphor-icons/react";
+import {
+  BookOpen,
+  Brain,
+  NotePencil,
+  TreeStructure,
+} from "@phosphor-icons/react";
 
-export type MobileStudyView = "reader" | "mentor" | "notes";
+export type MobileStudyView = "reader" | "mentor" | "notes" | "mindmap";
 
 export function MobileStudyTabs({
   value,
@@ -34,6 +39,14 @@ export function MobileStudyTabs({
       >
         <NotePencil size={18} />
         笔记
+      </button>
+      <button
+        type="button"
+        className={value === "mindmap" ? "active" : ""}
+        onClick={() => onChange("mindmap")}
+      >
+        <TreeStructure size={18} />
+        导图
       </button>
     </nav>
   );

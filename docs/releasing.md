@@ -2,7 +2,7 @@
 
 ## 版本规则
 
-项目遵循语义化版本。`package.json`、`package-lock.json`、`docs/CHANGELOG.md` 和 Git 标签必须使用同一版本；标签格式为 `vMAJOR.MINOR.PATCH`。
+项目遵循语义化版本。`package.json`、`package-lock.json`、`docs/CHANGELOG.md` 和 Git 标签必须使用同一版本；标签格式为 `vMAJOR.MINOR.PATCH`，预发布版本可追加 `-beta.N`。
 
 ## 发布前检查
 
@@ -12,11 +12,13 @@
 4. 创建并推送带注释标签：
 
 ```powershell
-git tag -a v0.1.0 -m "知页 v0.1.0"
-git push github v0.1.0
+git tag -a v0.1.0-beta.1 -m "知页 v0.1.0-beta.1"
+git push github v0.1.0-beta.1
 ```
 
 标签会触发 `.github/workflows/release.yml`：验证版本、创建 GitHub Release、生成发行说明、构建 GHCR 镜像并写入来源证明。
+
+`v0.1.0-beta.1` 这类带预发布标识的标签会创建 GitHub Pre-release。Beta 仅允许私有仓库受邀成员访问，安装包通过 Release 手动下载；Beta 客户端不会访问私有 Release 的自动更新元数据。
 
 ## Windows 正式安装包
 

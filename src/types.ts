@@ -84,6 +84,10 @@ export interface StudyNote {
   blockId?: string;
   page?: number;
   quote?: string;
+  /** When true, this note is rendered inline beside the associated text block. */
+  embedded?: boolean;
+  /** Source of the note content: "manual" | "ai-generated". */
+  source?: "manual" | "ai-generated";
 }
 
 export interface QuizItem {
@@ -115,7 +119,7 @@ export interface ReadingState {
   blockId?: string;
   positionPercent: number;
   furthestPercent: number;
-  rightTab: "mentor" | "notes";
+  rightTab: "mentor" | "notes" | "mindmap";
   updatedAt: number;
 }
 
@@ -189,6 +193,8 @@ export interface UserPreferences {
   fontScale: "small" | "medium" | "large";
   lineHeight: "compact" | "comfortable" | "relaxed";
   readingWidth: "narrow" | "medium" | "wide";
+  /** Reader margin: controls the left/right padding of the reading area */
+  readerMargin?: "narrow" | "medium" | "wide";
   semanticSearchEnabled?: boolean;
   batchConcurrency?: number;
   batchRequestsPerMinute?: number;
@@ -208,5 +214,56 @@ export interface ImportCheckpoint {
   totalPages?: number;
   pageTexts?: Record<string, string>;
   ocrLanguages?: string[];
+  updatedAt: number;
+}
+
+// ── Mind Map Types ──
+
+export interface MindMapNode {
+  id: string;
+  label: string;
+  /** Block IDs that this node references */
+  blockIds?: string[];
+  /** Child node IDs */
+  children: string[];
+  /** Whether this node is collapsed (children hidden) */
+  collapsed?: boolean;
+  /** Visual color for the node */
+  color?: string;
+}
+
+export interface MindMap {
+  id: string;
+  documentId: string;
+  chapterId?: string;
+  title: string;
+  /** Root node IDs (top-level) */
+  rootIds: string[];
+  /** All nodes indexed by ID */
+  nodes: Record<string, MindMapNode>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ── Sticky Note Types ──
+
+export interface StickyNote {
+  id: string;
+  documentId: string;
+  chapterId: string;
+  text: string;
+  /** Position from left edge (percentage or pixels) */
+  x: number;
+  /** Position from top edge (percentage or pixels) */
+  y: number;
+  /** Width of the note */
+  width?: number;
+  /** Color theme for the note */
+  color: "yellow" | "blue" | "green" | "pink" | "purple";
+  /** Whether the note is collapsed (only header visible) */
+  collapsed: boolean;
+  /** Whether the note is currently being dragged */
+  dragging?: boolean;
+  createdAt: number;
   updatedAt: number;
 }

@@ -8,9 +8,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { StudyNote } from "../types";
+import type { StudyNote, StickyNote } from "../types";
 import type { WorkspaceRuntime } from "./WorkspaceRuntime";
-import { useNoteManager } from "./operations/assistant";
+import { useNoteManager, useAiNoteGenerator } from "./operations/assistant";
+import { useMindMap } from "./operations/mindmap";
+import { usePersistence } from "./operations/persistence";
 
 function useStableCallback<T extends (...args: never[]) => unknown>(
   callback: T,
@@ -112,6 +114,12 @@ type NotesDomain = Pick<WorkspaceRuntime, "notes"> & {
   saveNote: (draft: string) => Promise<boolean>;
   deleteNote: (noteId: string) => Promise<void>;
   exportNotes: () => void;
+  /** Generate an AI note for a specific text block. */
+  generateAiNote: (blockId: string, blockText: string) => Promise<boolean>;
+  /** Delete an AI-generated embedded note. */
+  deleteAiNote: (noteId: string) => Promise<boolean>;
+  /** Update an AI-generated embedded note. */
+  updateAiNote: (noteId: string, newText: string) => Promise<boolean>;
 };
 
 type LearningDomain = Pick<
@@ -148,6 +156,29 @@ type IntelligenceDomain = Pick<
 
 type PreferencesDomain = Pick<WorkspaceRuntime, "preferences">;
 
+type MindMapDomain = {
+  mindMaps: import("../types").MindMap[];
+  setMindMaps: React.Dispatch<
+    React.SetStateAction<import("../types").MindMap[]>
+  >;
+  activeMindMapId: string | null;
+  setActiveMindMapId: (id: string | null) => void;
+  activeMindMap: import("../types").MindMap | null;
+  isGenerating: boolean;
+  generateMindMap: () => Promise<import("../types").MindMap | null>;
+  deleteMindMap: () => Promise<boolean>;
+};
+
+type StickyNotesDomain = {
+  stickyNotes: StickyNote[];
+  addStickyNote: (text: string, x: number, y: number) => Promise<boolean>;
+  updateStickyNote: (
+    id: string,
+    updates: Partial<StickyNote>,
+  ) => Promise<boolean>;
+  deleteStickyNote: (id: string) => Promise<boolean>;
+};
+
 const ShellContext = createContext<ShellDomain | null>(null);
 const LibraryContext = createContext<LibraryDomain | null>(null);
 const ReaderContext = createContext<ReaderDomain | null>(null);
@@ -156,6 +187,8 @@ const NotesContext = createContext<NotesDomain | null>(null);
 const LearningContext = createContext<LearningDomain | null>(null);
 const IntelligenceContext = createContext<IntelligenceDomain | null>(null);
 const PreferencesContext = createContext<PreferencesDomain | null>(null);
+const MindMapContext = createContext<MindMapDomain | null>(null);
+const StickyNotesContext = createContext<StickyNotesDomain | null>(null);
 
 function useRequiredContext<T>(context: React.Context<T | null>, name: string) {
   const value = useContext(context);
@@ -195,6 +228,14 @@ export function usePreferences() {
   return useRequiredContext(PreferencesContext, "usePreferences");
 }
 
+export function useMindMapDomain() {
+  return useRequiredContext(MindMapContext, "useMindMapDomain");
+}
+
+export function useStickyNotes() {
+  return useRequiredContext(StickyNotesContext, "useStickyNotes");
+}
+
 export function WorkspaceProvider({
   runtime,
   children,
@@ -216,7 +257,12 @@ export function WorkspaceProvider({
     setModelOnline,
     setModelOptions,
     setModelListState,
+    mindMaps,
+    stickyNotes,
   } = runtime;
+  const { activeDocument, activeChapter } = runtime;
+  const setMindMaps = runtime.setMindMaps;
+  const setStickyNotes = runtime.setStickyNotes;
   const [noteQuote, setNoteQuote] = useState("");
   const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(
     null,
@@ -231,9 +277,125 @@ export function WorkspaceProvider({
     deleteNote: deleteStoredNote,
     exportNotes,
   } = useNoteManager(runtime);
+  const {
+    generateNoteForBlock,
+    deleteAiNote: deleteAiNoteStored,
+    updateAiNote: updateAiNoteStored,
+  } = useAiNoteGenerator(runtime);
+  const { generateMindMap: generateMindMapOp, deleteMindMap: deleteMindMapOp } =
+    useMindMap(runtime);
+  // Mind Map state
+  const [activeMindMapId, setActiveMindMapId] = useState<string | null>(null);
+  const [isGeneratingMindMap, setIsGeneratingMindMap] = useState(false);
+  const activeMindMap = useMemo(
+    () =>
+      mindMaps.find((m) => m.id === activeMindMapId) ||
+      mindMaps.find(
+        (m) =>
+          m.documentId === activeDocument.id &&
+          m.chapterId === activeChapter.id,
+      ) ||
+      null,
+    [mindMaps, activeMindMapId, activeDocument.id, activeChapter.id],
+  );
+  const generateMindMap = useCallback(async () => {
+    setIsGeneratingMindMap(true);
+    try {
+      const result = await generateMindMapOp(mindMaps);
+      if (result) {
+        setMindMaps((prev) => {
+          const exists = prev.findIndex((m) => m.id === result.id);
+          if (exists >= 0) {
+            const next = [...prev];
+            next[exists] = result;
+            return next;
+          }
+          return [...prev, result];
+        });
+        setActiveMindMapId(result.id);
+      }
+      return result;
+    } finally {
+      setIsGeneratingMindMap(false);
+    }
+  }, [mindMaps, generateMindMapOp, setMindMaps]);
+  const deleteMindMap = useCallback(async () => {
+    if (!activeMindMapId) return false;
+    const ok = await deleteMindMapOp(activeMindMapId);
+    if (ok) {
+      setMindMaps((prev) => prev.filter((m) => m.id !== activeMindMapId));
+      setActiveMindMapId(null);
+    }
+    return ok;
+  }, [activeMindMapId, deleteMindMapOp, setMindMaps]);
+
+  const { persistCommand } = usePersistence(runtime);
+  const persistCommandRef = useRef(persistCommand);
+  persistCommandRef.current = persistCommand;
+
   const stableAddNote = useStableCallback(addNote);
   const stableDeleteStoredNote = useStableCallback(deleteStoredNote);
   const stableExportNotes = useStableCallback(exportNotes);
+  const stableGenerateAiNote = useStableCallback(generateNoteForBlock);
+  const stableDeleteAiNote = useStableCallback(deleteAiNoteStored);
+  const stableUpdateAiNote = useStableCallback(updateAiNoteStored);
+
+  // Sticky Notes callbacks
+  const addStickyNote = useCallback(
+    async (text: string, x: number, y: number): Promise<boolean> => {
+      const now = Date.now();
+      const note: StickyNote = {
+        id: crypto.randomUUID(),
+        documentId: activeDocument.id,
+        chapterId: activeChapter.id,
+        text,
+        x,
+        y,
+        color: "yellow",
+        collapsed: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const workspace = await persistCommandRef.current(
+        { type: "saveStickyNote", stickyNote: note },
+        "便签保存失败",
+      );
+      if (!workspace) return false;
+      setStickyNotes(workspace.stickyNotes);
+      return true;
+    },
+    [activeDocument.id, activeChapter.id, setStickyNotes],
+  );
+  const updateStickyNote = useCallback(
+    async (id: string, updates: Partial<StickyNote>): Promise<boolean> => {
+      const existing = stickyNotes.find((n) => n.id === id);
+      if (!existing) return false;
+      const updated = { ...existing, ...updates, updatedAt: Date.now() };
+      const workspace = await persistCommandRef.current(
+        { type: "saveStickyNote", stickyNote: updated },
+        "便签更新失败",
+      );
+      if (!workspace) return false;
+      setStickyNotes(workspace.stickyNotes);
+      return true;
+    },
+    [stickyNotes, setStickyNotes],
+  );
+  const deleteStickyNote = useCallback(
+    async (id: string): Promise<boolean> => {
+      const workspace = await persistCommandRef.current(
+        { type: "deleteStickyNote", stickyNoteId: id },
+        "便签删除失败",
+      );
+      if (!workspace) return false;
+      setStickyNotes(workspace.stickyNotes);
+      return true;
+    },
+    [setStickyNotes],
+  );
+  const stableAddStickyNote = useStableCallback(addStickyNote);
+  const stableUpdateStickyNote = useStableCallback(updateStickyNote);
+  const stableDeleteStickyNote = useStableCallback(deleteStickyNote);
   const closeOverlay = useCallback(() => setOverlay(null), [setOverlay]);
   const toggleSidebar = useCallback(
     () => setSidebarOpen((open) => !open),
@@ -489,6 +651,9 @@ export function WorkspaceProvider({
       saveNote,
       deleteNote,
       exportNotes: stableExportNotes,
+      generateAiNote: stableGenerateAiNote,
+      deleteAiNote: stableDeleteAiNote,
+      updateAiNote: stableUpdateAiNote,
     }),
     [
       runtime.notes,
@@ -502,6 +667,9 @@ export function WorkspaceProvider({
       saveNote,
       deleteNote,
       stableExportNotes,
+      stableGenerateAiNote,
+      stableDeleteAiNote,
+      stableUpdateAiNote,
     ],
   );
   const learning = useMemo<LearningDomain>(
@@ -565,6 +733,43 @@ export function WorkspaceProvider({
     [runtime.preferences],
   );
 
+  const mindMapDomain = useMemo<MindMapDomain>(
+    () => ({
+      mindMaps,
+      setMindMaps,
+      activeMindMapId,
+      setActiveMindMapId,
+      activeMindMap,
+      isGenerating: isGeneratingMindMap,
+      generateMindMap,
+      deleteMindMap,
+    }),
+    [
+      mindMaps,
+      activeMindMapId,
+      activeMindMap,
+      isGeneratingMindMap,
+      generateMindMap,
+      deleteMindMap,
+      setMindMaps,
+    ],
+  );
+
+  const stickyNotesDomain = useMemo<StickyNotesDomain>(
+    () => ({
+      stickyNotes,
+      addStickyNote: stableAddStickyNote,
+      updateStickyNote: stableUpdateStickyNote,
+      deleteStickyNote: stableDeleteStickyNote,
+    }),
+    [
+      stickyNotes,
+      stableAddStickyNote,
+      stableUpdateStickyNote,
+      stableDeleteStickyNote,
+    ],
+  );
+
   return (
     <ShellContext.Provider value={shell}>
       <LibraryContext.Provider value={library}>
@@ -574,7 +779,11 @@ export function WorkspaceProvider({
               <LearningContext.Provider value={learning}>
                 <IntelligenceContext.Provider value={intelligence}>
                   <PreferencesContext.Provider value={preferences}>
-                    {children}
+                    <MindMapContext.Provider value={mindMapDomain}>
+                      <StickyNotesContext.Provider value={stickyNotesDomain}>
+                        {children}
+                      </StickyNotesContext.Provider>
+                    </MindMapContext.Provider>
                   </PreferencesContext.Provider>
                 </IntelligenceContext.Provider>
               </LearningContext.Provider>

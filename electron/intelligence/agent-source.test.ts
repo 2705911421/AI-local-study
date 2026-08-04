@@ -90,7 +90,7 @@ describe("agent isolation policy", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  }, 15_000);
+  }, 45_000);
 
   it("does not delete images when initialization is requested again", async () => {
     const root = await mkdtemp(

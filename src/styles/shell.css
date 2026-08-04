@@ -37,6 +37,23 @@
 
 .brand:hover .brand-mark {
   transform: scale(1.05) rotate(-3deg);
+  animation: brand-wobble 0.5s ease-in-out;
+}
+
+@keyframes brand-wobble {
+  0%,
+  100% {
+    transform: scale(1.05) rotate(-3deg);
+  }
+  25% {
+    transform: scale(1.08) rotate(-5deg);
+  }
+  50% {
+    transform: scale(1.03) rotate(-1deg);
+  }
+  75% {
+    transform: scale(1.06) rotate(-4deg);
+  }
 }
 
 .brand-mark img {
@@ -147,9 +164,59 @@
   background: var(--accent-gradient);
   color: var(--accent-contrast);
   font-size: 13px;
-  box-shadow:
-    0 2px 8px var(--accent-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: var(--sketch-shadow-xs);
+  transition: all 200ms var(--ease-spring);
+}
+
+.primary-button:hover {
+  transform: translate(-1px, -1px) rotate(-0.5deg);
+  box-shadow: var(--sketch-shadow-sm);
+}
+
+.primary-button:active {
+  transform: translate(1px, 1px) rotate(0.3deg);
+  box-shadow: none;
+}
+
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  font-size: 13px;
+  box-shadow: var(--sketch-shadow-xs);
+  transition: all 200ms var(--ease-spring);
+}
+
+.secondary-button:hover {
+  transform: translate(-1px, -1px) rotate(-0.3deg);
+  box-shadow: var(--sketch-shadow-sm);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  transition: all 200ms var(--ease-spring);
+}
+
+.icon-button:hover {
+  background: var(--surface);
+  color: var(--accent);
+  transform: rotate(-5deg);
 }
 
 .primary-button:hover {

@@ -16,12 +16,14 @@ import {
 import type { Highlight, TextBlock } from "../../types";
 import { CURRENT_PDF_PARSER_VERSION } from "../../lib/document";
 import { PdfReader } from "../PdfReader";
+import { EmbeddedNote } from "./EmbeddedNote";
 import {
   useIntelligence,
   useLibrary,
   useNotes,
   useReader,
   useShell,
+  usePreferences,
 } from "../../workspace/WorkspaceDomains";
 import { markWorkspaceRender } from "../../workspace/renderDiagnostics";
 
@@ -78,6 +80,10 @@ export const ReaderPane = memo(function ReaderPane({
   const reader = useReader();
   const notes = useNotes();
   const intelligence = useIntelligence();
+  const { preferences } = usePreferences();
+  const [generatingForBlock, setGeneratingForBlock] = useState<string | null>(
+    null,
+  );
   const { activeDocument, activeChapter } = library;
   const [searchOpen, setSearchOpen] = useState(false);
   const [chapterSearch, setChapterSearch] = useState("");
@@ -95,12 +101,20 @@ export const ReaderPane = memo(function ReaderPane({
     setSearchIndex(onGoToSearchResult(index, searchResults));
   };
 
+  const readerMargin = preferences.readerMargin || "medium";
+  const marginClass =
+    readerMargin === "narrow"
+      ? "margin-narrow"
+      : readerMargin === "wide"
+        ? "margin-wide"
+        : "";
+
   return (
     <main
       ref={containerRef}
       className={`reader-panel ${
         reader.readerMode === "original" ? "is-original" : ""
-      } ${shell.mobileView === "reader" ? "mobile-active" : ""}`}
+      } ${shell.mobileView === "reader" ? "mobile-active" : ""} ${marginClass}`}
       onScroll={onScroll}
     >
       <div className="reader-toolbar">
@@ -447,7 +461,46 @@ export const ReaderPane = memo(function ReaderPane({
                       <Sparkle size={13} />
                       解释这段
                     </button>
+                    <button
+                      type="button"
+                      className={`generate-ai-note ${
+                        generatingForBlock === block.id ? "is-loading" : ""
+                      }`}
+                      disabled={generatingForBlock !== null}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setGeneratingForBlock(block.id);
+                        notes
+                          .generateAiNote(
+                            block.id,
+                            block.smartText || block.text,
+                          )
+                          .finally(() => setGeneratingForBlock(null));
+                      }}
+                      title="AI 为这段内容生成学习笔记"
+                    >
+                      <Sparkle size={11} />
+                      {generatingForBlock === block.id ? "生成中…" : "AI 笔记"}
+                    </button>
                   </div>
+                  {notes.notes
+                    .filter(
+                      (n) =>
+                        n.blockId === block.id &&
+                        n.embedded &&
+                        n.documentId === library.activeDocument.id,
+                    )
+                    .map((embeddedNote) => (
+                      <EmbeddedNote
+                        key={embeddedNote.id}
+                        note={embeddedNote}
+                        onEdit={(note) => {
+                          notes.editNote(note);
+                          shell.selectRightTab("notes");
+                        }}
+                        onDelete={notes.deleteAiNote}
+                      />
+                    ))}
                 </div>
               </section>
             ),

@@ -6,6 +6,7 @@ import type {
 export type {
   AgentProvider,
   DesktopAutoBackupSettings,
+  DesktopDiagnosticsContext,
   DesktopIntelligenceBridge,
   DesktopSavedSettings,
   DesktopSettingsInput,

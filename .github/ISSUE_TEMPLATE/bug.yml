@@ -47,3 +47,9 @@ body:
     attributes:
       label: 环境信息
       description: Windows/浏览器版本、Node.js 版本、模型来源等；请先移除敏感信息。
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断信息
+      description: 请粘贴“导出诊断”文件内容；提交前确认其中没有教材、密钥、Token 或完整服务地址。
+      render: text

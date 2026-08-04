@@ -43,9 +43,7 @@ test("发布页首屏在支持的视口内完整显示", async ({ page }) => {
       );
 
     expect(overflow, `${viewport.width}px 首屏存在水平越界`).toEqual([]);
-    await expect(
-      page.getByRole("link", { name: "打开在线体验" }),
-    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "开始阅读" })).toBeVisible();
     await expect(
       page.getByRole("link", { name: "查看 Windows 版" }),
     ).toBeVisible();
@@ -66,10 +64,33 @@ test("工作台深层入口不会请求缺失的静态资源", async ({ page }) 
 
   for (const route of ["/app", "/app/"]) {
     await page.goto(route);
-    await expect(page.getByRole("button", { name: "设置" })).toBeVisible();
+    await expect(page.locator("header.topbar .icon-button")).toBeVisible();
   }
 
   expect(failedAssets).toEqual([]);
+});
+
+test("发布页图片和脚本资源均可加载", async ({ page }) => {
+  const failedAssets: string[] = [];
+  page.on("response", (response) => {
+    const resourceType = response.request().resourceType();
+    if (
+      response.status() >= 400 &&
+      ["font", "image", "script", "stylesheet"].includes(resourceType)
+    ) {
+      failedAssets.push(`${response.status()} ${response.url()}`);
+    }
+  });
+
+  await page.goto("/");
+  await expect(page.locator(".hero-reader-frame img")).toBeVisible();
+  await expect(page.locator(".local-first-visual img")).toBeVisible();
+  expect(failedAssets).toEqual([]);
+  expect(
+    await page
+      .locator('img[src*="assets/optimized/windows-desk.webp"]')
+      .count(),
+  ).toBe(0);
 });
 
 test("发布页导航和工作台路由均可访问", async ({ page }) => {
@@ -81,12 +102,15 @@ test("发布页导航和工作台路由均可访问", async ({ page }) => {
     }),
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "怎么学习" }).click();
+  await page
+    .locator('a[href="#workflow"]')
+    .first()
+    .evaluate((link) => (link as HTMLAnchorElement).click());
   await expect(page).toHaveURL(/#workflow$/);
 
   for (const route of ["/app", "/app/"]) {
     await page.goto(route);
-    await expect(page.getByRole("button", { name: "设置" })).toBeVisible();
+    await expect(page.locator("header.topbar .icon-button")).toBeVisible();
     await expect(page).toHaveTitle("知页 · 本地教材伴学");
   }
 });
@@ -106,7 +130,7 @@ test("发布页响应深色、减少动效与无障碍偏好", async ({ page }) 
     ),
   }));
 
-  expect(preferences.paper).toBe("#101713");
+  expect(preferences.paper).toBe("#1a1814");
   expect(preferences.activeAnimations).toBe(0);
   expect(preferences.transitionDuration).toBeLessThanOrEqual(0.00001);
 

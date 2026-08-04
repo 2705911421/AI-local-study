@@ -32,6 +32,7 @@ const bridge: DesktopIntelligenceBridge = {
   getUpdateStatus: () => invoke("updates:get-status"),
   checkForUpdates: () => invoke("updates:check"),
   installUpdate: () => invoke("updates:install"),
+  getDiagnosticsContext: () => invoke("diagnostics:get-context"),
   getAutoBackupSettings: () => invoke("backup:get-settings"),
   chooseAutoBackupDirectory: (passphrase: string) =>
     invoke("backup:choose-directory", { passphrase }),
