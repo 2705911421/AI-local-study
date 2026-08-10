@@ -6,7 +6,7 @@ RUN npm ci --ignore-scripts
 COPY . .
 RUN npm run build:web
 
-FROM ghcr.io/nginx/nginx-unprivileged:1.31.1-alpine3.23
+FROM ghcr.io/nginx/nginx-unprivileged:1.31.2-alpine3.23
 
 LABEL org.opencontainers.image.source="https://github.com/2705911421/AI-local-study"
 LABEL org.opencontainers.image.description="知页本地教材伴学工具 Web 版"
