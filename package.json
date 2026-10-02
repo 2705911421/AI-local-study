@@ -122,7 +122,7 @@
     "vitest": "^3.2.7",
     "vitest-axe": "^0.1.0",
     "wait-on": "9.0.1",
-    "wrangler": "^4.118.0"
+    "wrangler": "^4.147.0"
   },
   "build": {
     "appId": "cn.zhiye.study",
